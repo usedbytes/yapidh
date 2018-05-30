@@ -1,5 +1,9 @@
 /*
+ * wave_gen.c Event sequence generator
  * Copyright (c) 2018 Brian Starkey <stark3y@gmail.com>
+ *
+ * Given a set of event sources, capable of generating events at discrete
+ * intervals, generate sequences of delays and events
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,24 +18,39 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include <stdio.h>
-
-#include "step_source.h"
-#include "step_gen.h"
 #include "wave_gen.h"
 
-int main(int argc, char *argv[])
+#define MAX_SOURCES 4
+
+static void gen_delay(int time)
 {
-	struct step_source *ss = step_source_create();
 
-	struct wave_ctx ctx = {
-		.n_sources = 1,
-		.sources = { &ss->base },
-	};
+}
 
-	stepper_set_speed(&ss->sctx, 24);
+void wave_gen(struct wave_ctx *c, int budget) {
+	int i, min;
 
-	wave_gen(&ctx, 1000000);
+	while (budget) {
+		min = budget;
 
-	return 0;
+		for (i = 0; i < c->n_sources; i++) {
+			// TODO: Should combine events where possible
+			if (c->t[i] == 0) {
+				struct source *s = c->sources[i];
+				s->gen_event(s);
+				c->t[i] = s->get_delay(s);
+			}
+			if (c->t[i] < min) {
+				min = c->t[i];
+			}
+		}
+
+		gen_delay(min);
+
+		for (i = 0; i < c->n_sources; i++) {
+			c->t[i] -= min;
+		}
+
+		budget -= min;
+	}
 }

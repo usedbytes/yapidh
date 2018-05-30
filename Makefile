@@ -1,0 +1,19 @@
+TARGET := a.out
+SRC := main.c wave_gen.c step_source.c step_gen.c
+OBJS = $(patsubst %.c,%.o,$(SRC))
+
+CFLAGS = -Wall -g
+LDFLAGS = -lm
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+clean:
+	rm -f *.o $(TARGET)
+
+.PHONY: clean all

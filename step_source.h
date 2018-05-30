@@ -1,4 +1,5 @@
 /*
+ * step_source.h Event source for stepper motor
  * Copyright (c) 2018 Brian Starkey <stark3y@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -14,24 +15,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include <stdio.h>
+#ifndef __STEP_SOURCE_H__
+#define __STEP_SOURCE_H__
 
-#include "step_source.h"
-#include "step_gen.h"
 #include "wave_gen.h"
+#include "step_gen.h"
 
-int main(int argc, char *argv[])
-{
-	struct step_source *ss = step_source_create();
+struct step_source {
+	struct source base;
+	struct step_ctx sctx;
+};
 
-	struct wave_ctx ctx = {
-		.n_sources = 1,
-		.sources = { &ss->base },
-	};
+struct step_source *step_source_create();
 
-	stepper_set_speed(&ss->sctx, 24);
-
-	wave_gen(&ctx, 1000000);
-
-	return 0;
-}
+#endif /* __STEP_SOURCE_H__ */
