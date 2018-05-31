@@ -19,27 +19,30 @@
 #include "step_source.h"
 #include "step_gen.h"
 #include "wave_gen.h"
-#include "gnuplot_backend.h"
+#include "vcd_backend.h"
 
 int main(int argc, char *argv[])
 {
+	int i;
 	struct step_source *ss = step_source_create();
-	struct gnuplot_backend *gb = gnuplot_backend_create();
+	struct step_source *ss2 = step_source_create();
+	const char *names[] = {
+		"ch0", "ch1", "ch2", "ch3",
+	};
+	struct vcd_backend *be = vcd_backend_create(4, names);
 
 	struct wave_ctx ctx = {
-		.n_sources = 1,
-		.sources = { &ss->base },
-		.be = &gb->base,
+		.n_sources = 2,
+		.sources = { &ss->base, &ss2->base },
+		.be = &be->base,
 	};
 
+	stepper_set_speed(&ss2->sctx, 7);
 	stepper_set_speed(&ss->sctx, 24);
-	step_ctx_dump(&ss->sctx);
 
-	wave_gen(&ctx, 10000);
-
-	stepper_set_speed(&ss->sctx, 1);
-	step_ctx_dump(&ss->sctx);
-	wave_gen(&ctx, 10000);
+	for (i = 0; i < 60; i++) {
+		wave_gen(&ctx, 1600);
+	}
 
 	return 0;
 }

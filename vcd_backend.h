@@ -1,5 +1,4 @@
 /*
- * step_source.h Event source for stepper motor
  * Copyright (c) 2018 Brian Starkey <stark3y@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -15,27 +14,22 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#ifndef __STEP_SOURCE_H__
-#define __STEP_SOURCE_H__
+#ifndef __VCD_BACKEND_H__
+#define __VCD_BACKEND_H__
+#include <stdint.h>
 
 #include "wave_gen.h"
-#include "step_gen.h"
 
-enum edge {
-	EDGE_RISING,
-	EDGE_FALLING,
+struct vcd_backend {
+	struct wave_backend base;
+
+	int n_channels;
+
+	int time;
+	uint32_t rising;
+	uint32_t falling;
 };
 
-struct step_source {
-	struct source base;
-	struct step_ctx sctx;
+struct vcd_backend *vcd_backend_create(int n_channels, const char *names[]);
 
-	int edge;
-	int gap;
-	int pulsewidth;
-	int channel;
-};
-
-struct step_source *step_source_create();
-
-#endif /* __STEP_SOURCE_H__ */
+#endif /* __VCD_BACKEND_H__ */

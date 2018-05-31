@@ -1,5 +1,5 @@
 TARGET := a.out
-SRC := main.c wave_gen.c step_source.c step_gen.c gnuplot_backend.c
+SRC := main.c wave_gen.c step_source.c step_gen.c vcd_backend.c
 OBJS = $(patsubst %.c,%.o,$(SRC))
 
 CFLAGS = -Wall -g

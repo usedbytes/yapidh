@@ -22,6 +22,8 @@
 #include "step_source.h"
 #include "types.h"
 
+static int channel = 0;
+
 static int step_source_get_delay(struct source *s)
 {
 	struct step_source *ss = (struct step_source *)s;
@@ -43,10 +45,10 @@ static void step_source_gen_event(struct source *s, struct event *ev)
 
 	if (ss->edge == EDGE_RISING) {
 		ev->type = EVENT_RISING_EDGE;
-		ev->channel = 0;
+		ev->channel = ss->channel;
 	} else {
 		ev->type = EVENT_FALLING_EDGE;
-		ev->channel = 0;
+		ev->channel = ss->channel;
 	}
 }
 
@@ -57,6 +59,7 @@ struct step_source *step_source_create()
 	ss->base.gen_event = step_source_gen_event;
 	ss->base.get_delay = step_source_get_delay;
 	ss->pulsewidth = 5;
+	ss->channel = channel++;
 
 	step_ctx_init(&ss->sctx, 600, 100000, 100);
 
