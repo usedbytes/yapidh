@@ -21,9 +21,18 @@
 #include "wave_gen.h"
 #include "step_gen.h"
 
+enum edge {
+	EDGE_RISING,
+	EDGE_FALLING,
+};
+
 struct step_source {
 	struct source base;
 	struct step_ctx sctx;
+
+	int edge;
+	int gap;
+	int pulsewidth;
 };
 
 struct step_source *step_source_create();

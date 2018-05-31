@@ -23,13 +23,22 @@
 
 #define MAX_SOURCES 4
 
+/* event is defined by the backend */
+struct event;
+
 struct source {
 	int (*get_delay)(struct source *);
-	void (*gen_event)(struct source *);
+	void (*gen_event)(struct source *, struct event *ev);
+};
+
+struct wave_backend {
+	void (*add_delay)(struct wave_backend *wb, int delay);
+	void (*add_event)(struct wave_backend *wb, struct source *s);
 };
 
 struct wave_ctx {
 	int n_sources;
+	struct wave_backend *be;
 	struct source *sources[MAX_SOURCES];
 
 	int t[MAX_SOURCES];

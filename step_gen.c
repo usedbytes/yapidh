@@ -41,7 +41,6 @@ void stepper_set_speed(struct step_ctx *c, double speed)
 	}
 
 	c->n = same_sign(c->n, c->target_n);
-
 }
 
 void stepper_tick(struct step_ctx *c)

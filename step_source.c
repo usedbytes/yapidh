@@ -19,22 +19,32 @@
 #include <stdlib.h>
 
 #include "step_source.h"
+#include "gnuplot_backend.h"
 
 static int step_source_get_delay(struct source *s)
 {
 	struct step_source *ss = (struct step_source *)s;
 
-	stepper_tick(&ss->sctx);
-
-	return round(ss->sctx.c);
+	if (ss->edge == EDGE_RISING) {
+		stepper_tick(&ss->sctx);
+		ss->gap = round(ss->sctx.c);
+		ss->edge = EDGE_FALLING;
+		return ss->pulsewidth;
+	} else {
+		ss->edge = EDGE_RISING;
+		return ss->gap - ss->pulsewidth;
+	}
 }
 
-static void step_source_gen_event(struct source *s)
+static void step_source_gen_event(struct source *s, struct event *ev)
 {
 	struct step_source *ss = (struct step_source *)s;
 
-	// TODO
-	step_ctx_dump(&ss->sctx);
+	if (ss->edge == EDGE_RISING) {
+		ev->val = 1;
+	} else {
+		ev->val = 0;
+	}
 }
 
 struct step_source *step_source_create()
@@ -43,6 +53,7 @@ struct step_source *step_source_create()
 
 	ss->base.gen_event = step_source_gen_event;
 	ss->base.get_delay = step_source_get_delay;
+	ss->pulsewidth = 5;
 
 	step_ctx_init(&ss->sctx, 600, 100000, 100);
 

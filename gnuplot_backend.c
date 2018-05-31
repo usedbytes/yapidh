@@ -15,31 +15,35 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #include <stdio.h>
+#include <stdlib.h>
 
-#include "step_source.h"
-#include "step_gen.h"
-#include "wave_gen.h"
 #include "gnuplot_backend.h"
 
-int main(int argc, char *argv[])
+static void gnuplot_backend_add_event(struct wave_backend *wb, struct source *s)
 {
-	struct step_source *ss = step_source_create();
-	struct gnuplot_backend *gb = gnuplot_backend_create();
+	struct gnuplot_backend *gb = (struct gnuplot_backend *)wb;
 
-	struct wave_ctx ctx = {
-		.n_sources = 1,
-		.sources = { &ss->base },
-		.be = &gb->base,
-	};
+	if (gb->time > 0) {
+		printf("%d, %d\n", gb->time - 1, gb->ev.val);
+	}
 
-	stepper_set_speed(&ss->sctx, 24);
-	step_ctx_dump(&ss->sctx);
+	s->gen_event(s, &gb->ev);
+	printf("%d, %d\n", gb->time, gb->ev.val);
+}
 
-	wave_gen(&ctx, 10000);
+static void gnuplot_backend_add_delay(struct wave_backend *wb, int delay)
+{
+	struct gnuplot_backend *gb = (struct gnuplot_backend *)wb;
 
-	stepper_set_speed(&ss->sctx, 1);
-	step_ctx_dump(&ss->sctx);
-	wave_gen(&ctx, 10000);
+	gb->time += delay;
+}
 
-	return 0;
+struct gnuplot_backend *gnuplot_backend_create()
+{
+	struct gnuplot_backend *gb = calloc(1, sizeof(*gb));
+
+	gb->base.add_delay = gnuplot_backend_add_delay;
+	gb->base.add_event = gnuplot_backend_add_event;
+
+	return gb;
 }
