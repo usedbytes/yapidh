@@ -14,21 +14,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#ifndef __GNUPLOT_BACKEND_H__
-#define __GNUPLOT_BACKEND_H__
-#include <stdint.h>
+#ifndef __TYPES_H__
+#define __TYPES_H__
 
-#include "wave_gen.h"
-
-struct gnuplot_backend {
-	struct wave_backend base;
-
-	int time;
-	int prev_time;
-	uint32_t state;
-	uint32_t prev_state;
+enum event_type {
+	EVENT_RISING_EDGE,
+	EVENT_FALLING_EDGE,
 };
 
-struct gnuplot_backend *gnuplot_backend_create();
+struct event {
+	enum event_type type;
+	int channel;
+};
 
-#endif /* __GNUPLOT_BACKEND_H__ */
+#endif /* __TYPES_H__ */

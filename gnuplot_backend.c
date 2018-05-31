@@ -19,6 +19,7 @@
 #include <stdlib.h>
 
 #include "gnuplot_backend.h"
+#include "types.h"
 
 static void gnuplot_backend_add_event(struct wave_backend *wb, struct source *s)
 {

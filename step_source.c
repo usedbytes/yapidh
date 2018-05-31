@@ -18,8 +18,9 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include "step_source.h"
 #include "gnuplot_backend.h"
+#include "step_source.h"
+#include "types.h"
 
 static int step_source_get_delay(struct source *s)
 {
