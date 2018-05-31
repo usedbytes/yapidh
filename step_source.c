@@ -41,9 +41,11 @@ static void step_source_gen_event(struct source *s, struct event *ev)
 	struct step_source *ss = (struct step_source *)s;
 
 	if (ss->edge == EDGE_RISING) {
-		ev->val = 1;
+		ev->type = EVENT_RISING_EDGE;
+		ev->channel = 0;
 	} else {
-		ev->val = 0;
+		ev->type = EVENT_FALLING_EDGE;
+		ev->channel = 0;
 	}
 }
 

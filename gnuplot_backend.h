@@ -16,18 +16,27 @@
  */
 #ifndef __GNUPLOT_BACKEND_H__
 #define __GNUPLOT_BACKEND_H__
+#include <stdint.h>
 
 #include "wave_gen.h"
 
+enum event_type {
+	EVENT_RISING_EDGE,
+	EVENT_FALLING_EDGE,
+};
+
 struct event {
-	int val;
+	enum event_type type;
+	int channel;
 };
 
 struct gnuplot_backend {
 	struct wave_backend base;
 
 	int time;
-	struct event ev;
+	int prev_time;
+	uint32_t state;
+	uint32_t prev_state;
 };
 
 struct gnuplot_backend *gnuplot_backend_create();
