@@ -10,8 +10,11 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
+-include $(patsubst %.o,%.d,$(OBJS))
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) -MM $(CFLAGS) $*.c > $*.d
 
 clean:
 	rm -f *.o $(TARGET)
