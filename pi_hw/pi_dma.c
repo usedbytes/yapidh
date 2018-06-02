@@ -334,7 +334,8 @@ void dma_channel_dump(struct dma_channel *ch)
 
 void dma_cb_dump(dma_cb_t *cb)
 {
-	printf("TI: %08x\n", cb->info);
+	printf("VA : %08x\n", (uint32_t)cb);
+	printf("TI : %08x\n", cb->info);
 	printf("SAD: %08x\n", cb->src);
 	printf("DAD: %08x\n", cb->dst);
 	printf("LEN: %08x\n", cb->length);
