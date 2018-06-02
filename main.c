@@ -25,9 +25,9 @@
 #include "wave_gen.h"
 #include "vcd_backend.h"
 
-#include "pi_dma/pi_dma.h"
-#include "pi_dma/pi_gpio.h"
-#include "pi_dma/pi_util.h"
+#include "pi_hw/pi_dma.h"
+#include "pi_hw/pi_gpio.h"
+#include "pi_hw/pi_util.h"
 
 volatile bool exiting = false;
 static void sig_handler(int dummy)
