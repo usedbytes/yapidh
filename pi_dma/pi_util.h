@@ -40,7 +40,6 @@ struct board_cfg {
 int get_model_and_revision(struct board_cfg *board);
 
 uint32_t *map_peripheral(uint32_t base, size_t len);
-uint32_t mem_virt_to_phys(void *virt);
 
 struct phys {
 	int handle;		/* From mbox_open() */
