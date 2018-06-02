@@ -50,6 +50,33 @@ static void setup_sighandlers(void)
 	}
 }
 
+static dma_cb_t *square_wave(struct dma_channel *ch, struct phys *phys, dma_cb_t *cb,
+			     uint32_t period_us, uint32_t cycles)
+{
+	int i;
+
+	for (i = 0; i < cycles; i++) {
+		dma_rising_edge(ch, (1 << 4), cb, phys_virt_to_phys(phys, cb));
+		cb->next = phys_virt_to_phys(phys, cb + 1);
+		cb++;
+
+		dma_delay(ch, period_us / 2, cb, phys_virt_to_phys(phys, cb));
+		cb->next = phys_virt_to_phys(phys, cb + 1);
+		cb++;
+
+		dma_falling_edge(ch, (1 << 4), cb, phys_virt_to_phys(phys, cb));
+		cb->next = phys_virt_to_phys(phys, cb + 1);
+		cb++;
+
+		dma_delay(ch, period_us / 2, cb, phys_virt_to_phys(phys, cb));
+		cb->next = phys_virt_to_phys(phys, cb + 1);
+		cb++;
+	}
+
+	cb--;
+	return cb;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -57,7 +84,10 @@ int main(int argc, char *argv[])
 	struct gpio_dev *gpio = NULL;
 	struct phys *phys = NULL;
 	struct dma_channel *dma_ch = NULL;
-	dma_cb_t *cb;
+	dma_cb_t *cb, *cursor, *tail, *head, *fence;
+	dma_cb_t *wave0, *wave1;
+	int wave_idx = 0;
+	unsigned period = 200;
 
 	setup_sighandlers();
 
@@ -82,8 +112,9 @@ int main(int argc, char *argv[])
 	}
 
 	gpio_set_mode(gpio, 4, GPIO_MODE_OUT);
+	gpio_clear(gpio, (1 << 4));
 
-	phys = phys_alloc(&board, sizeof(dma_cb_t) * 1024);
+	phys = phys_alloc(&board, sizeof(dma_cb_t) * 2048);
 	if (!phys) {
 		fprintf(stderr, "Couldn't get phys\n");
 		goto fail;
@@ -105,23 +136,62 @@ int main(int argc, char *argv[])
 
 	cb = (dma_cb_t *)phys->virt_addr;
 
-	dma_rising_edge(dma_ch, (1 << 4), &cb[0], phys_virt_to_phys(phys, &cb[0]));
-	cb[0].next = phys_virt_to_phys(phys, &cb[1]);
+	wave0 = cb;
+	wave1 = cb + 1024;
 
-	dma_delay(dma_ch, 100, &cb[1], phys_virt_to_phys(phys, &cb[1]));
-	cb[1].next = phys_virt_to_phys(phys, &cb[2]);
+	cursor = wave0;
 
-	dma_falling_edge(dma_ch, (1 << 4), &cb[2], phys_virt_to_phys(phys, &cb[2]));
-	cb[2].next = phys_virt_to_phys(phys, &cb[3]);
+	// Insert a fence
+	dma_fence(dma_ch, 1, cursor, phys_virt_to_phys(phys, cursor));
+	fence = cursor;
+	cursor->next = phys_virt_to_phys(phys, cursor + 1);
+	cursor++;
 
-	dma_delay(dma_ch, 100, &cb[3], phys_virt_to_phys(phys, &cb[3]));
-	cb[3].next = phys_virt_to_phys(phys, &cb[0]);
+	// Generate 16ms of wave
+	cursor = square_wave(dma_ch, phys, cursor, period, 16000 / period);
+	cursor->next = 0;
 
-	dma_channel_run(dma_ch, phys_virt_to_phys(phys, cb));
+	tail = cursor;
+
+	wave_idx = 1;
+
+	dma_cb_dump(fence);
+	dma_channel_run(dma_ch, phys_virt_to_phys(phys, wave0));
 
 	while (!exiting) {
+#if 1
+		ret = dma_fence_wait(fence, 10, 5);
+		if (ret < 0) {
+			fprintf(stderr, "Timeout waiting for fence.\n");
+			goto fail;
+		};
+
+		if (wave_idx == 1) {
+			head = cursor = wave1;
+			wave_idx = 0;
+			period = 800;
+		} else {
+			head = cursor = wave0;
+			wave_idx = 1;
+			period = 100;
+		}
+
+		// Insert a fence
+		dma_fence(dma_ch, 1, cursor, phys_virt_to_phys(phys, cursor));
+		fence = cursor;
+		cursor->next = phys_virt_to_phys(phys, cursor + 1);
+		cursor++;
+
+		// Generate 16ms of wave
+		cursor = square_wave(dma_ch, phys, cursor, period, 16000 / period);
+		cursor->next = 0;
+
+		tail->next = phys_virt_to_phys(phys, head);
+		tail = cursor;
+#else
 		usleep(1000000);
-		dma_channel_dump(dma_ch);
+		dma_cb_dump(fence);
+#endif
 	}
 
 	/*
