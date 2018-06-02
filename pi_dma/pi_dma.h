@@ -22,6 +22,7 @@
  */
 #ifndef __PI_DMA_H__
 #define __PI_DMA_H__
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "pi_util.h"
@@ -54,7 +55,11 @@ void dma_channel_run(struct dma_channel *ch, uint32_t cb_base_phys);
 void dma_rising_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_phys);
 void dma_falling_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_phys);
 int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t cb_phys);
+void dma_fence(struct dma_channel *ch, uint32_t val, dma_cb_t *cb, uint32_t cb_phys);
+int dma_fence_wait(dma_cb_t *cb, int timeout_millis, int sleep_millis);
+bool dma_fence_signaled(dma_cb_t *cb);
 
 void dma_channel_dump(struct dma_channel *ch);
+void dma_cb_dump(dma_cb_t *cb);
 
 #endif /* __PI_DMA_H__ */

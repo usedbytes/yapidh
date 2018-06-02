@@ -284,6 +284,41 @@ int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t 
 	return 0;
 }
 
+void dma_fence(struct dma_channel *ch, uint32_t val, dma_cb_t *cb, uint32_t cb_phys)
+{
+	cb->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
+	cb->src = cb_phys + offsetof(dma_cb_t, pad);
+	cb->dst = cb_phys + offsetof(dma_cb_t, pad) + 4;
+	cb->length = 4;
+	cb->stride = 0;
+	cb->next = (uint32_t)NULL;
+	cb->pad[0] = val;
+	cb->pad[1] = 0;
+}
+
+bool dma_fence_signaled(dma_cb_t *cb)
+{
+	volatile uint32_t *f = (volatile uint32_t *)&cb->pad[1];
+	return *f;
+}
+
+int dma_fence_wait(dma_cb_t *cb, int timeout_millis, int sleep_millis)
+{
+	int us = sleep_millis * 1000;
+	while (1) {
+		if (dma_fence_signaled(cb)) {
+			return 0;
+		}
+
+		if (timeout_millis > 0) {
+			timeout_millis--;
+		} else if (timeout_millis == 0) {
+			return -1;
+		}
+		usleep(us);
+	}
+}
+
 void dma_channel_dump(struct dma_channel *ch)
 {
 	printf("CS: %08x\n", ch->reg[0]);
@@ -295,4 +330,16 @@ void dma_channel_dump(struct dma_channel *ch)
 	printf("STR: %08x\n", ch->reg[6]);
 	printf("NXT: %08x\n", ch->reg[7]);
 	printf("DBG: %08x\n", ch->reg[8]);
+}
+
+void dma_cb_dump(dma_cb_t *cb)
+{
+	printf("TI: %08x\n", cb->info);
+	printf("SAD: %08x\n", cb->src);
+	printf("DAD: %08x\n", cb->dst);
+	printf("LEN: %08x\n", cb->length);
+	printf("STR: %08x\n", cb->stride);
+	printf("NXT: %08x\n", cb->next);
+	printf("PA0: %08x\n", cb->pad[0]);
+	printf("PA1: %08x\n", cb->pad[1]);
 }
