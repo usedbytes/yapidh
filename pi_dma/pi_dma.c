@@ -274,12 +274,10 @@ int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t 
 	}
 
 	delay_us /= ch->pace_us;
-	printf("delay: %d\n", delay_us);
 
 	cb->src = cb_phys + offsetof(dma_cb_t, pad);
 	cb->dst = phys_fifo_addr;
 	cb->length = ((delay_us - 1) << 16) | 4;
-	printf("length: %08x\n", cb->length);
 	cb->stride = 0;
 	cb->next = (uint32_t)NULL;
 
