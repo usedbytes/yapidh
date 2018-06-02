@@ -26,6 +26,6 @@ $(TARGET): $(OBJS)
 	$(CC) -MM $(CFLAGS) $*.c > $*.d
 
 clean:
-	rm -f *.o $(TARGET)
+	rm -f $(OBJS) $(TARGET)
 
 .PHONY: clean all
