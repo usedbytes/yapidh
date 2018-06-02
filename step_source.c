@@ -59,7 +59,7 @@ struct step_source *step_source_create()
 	ss->base.gen_event = step_source_gen_event;
 	ss->base.get_delay = step_source_get_delay;
 	ss->pulsewidth = 5;
-	ss->channel = channel++;
+	ss->channel = 4;
 
 	step_ctx_init(&ss->sctx, 600, 100000, 100);
 

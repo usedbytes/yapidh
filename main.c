@@ -23,7 +23,7 @@
 #include "step_source.h"
 #include "step_gen.h"
 #include "wave_gen.h"
-#include "vcd_backend.h"
+#include "pi_backend.h"
 
 #include "pi_hw/pi_dma.h"
 #include "pi_hw/pi_gpio.h"
@@ -82,12 +82,12 @@ int main(int argc, char *argv[])
 	int ret;
 	struct board_cfg board;
 	struct gpio_dev *gpio = NULL;
-	struct phys *phys = NULL;
-	struct dma_channel *dma_ch = NULL;
-	dma_cb_t *cb, *cursor, *tail, *head, *fence;
-	dma_cb_t *wave0, *wave1;
-	int wave_idx = 0;
-	unsigned period = 200;
+	struct pi_backend *be = NULL;
+	struct step_source *ss = step_source_create();
+	struct wave_ctx ctx = {
+		.n_sources = 1,
+		.sources = { &ss->base },
+	};
 
 	setup_sighandlers();
 
@@ -114,84 +114,26 @@ int main(int argc, char *argv[])
 	gpio_set_mode(gpio, 4, GPIO_MODE_OUT);
 	gpio_clear(gpio, (1 << 4));
 
-	phys = phys_alloc(&board, sizeof(dma_cb_t) * 2048);
-	if (!phys) {
-		fprintf(stderr, "Couldn't get phys\n");
+	be = pi_backend_create(&board);
+	if (!be) {
+		fprintf(stderr, "Couldn't get backend\n");
 		goto fail;
 	}
 
-	printf("Phys handle: %d\n", phys->handle);
-	printf("Phys size: %d\n", phys->size);
-	printf("Phys ref: %d\n", phys->mem_ref);
-	printf("Phys bus: %08x\n", phys->bus_addr);
-	printf("Phys virt: %p\n", phys->virt_addr);
+	ctx.be = (struct wave_backend *)be;
 
-	dma_ch = dma_channel_init(&board, 6);
-	if (!dma_ch) {
-		fprintf(stderr, "Couldn't get dma\n");
-		goto fail;
-	}
-
-	dma_channel_setup_pacer(dma_ch, PACER_PWM, 10);
-
-	cb = (dma_cb_t *)phys->virt_addr;
-
-	wave0 = cb;
-	wave1 = cb + 1024;
-
-	cursor = wave0;
-
-	// Insert a fence
-	dma_fence(dma_ch, 1, cursor, phys_virt_to_phys(phys, cursor));
-	fence = cursor;
-	cursor->next = phys_virt_to_phys(phys, cursor + 1);
-	cursor++;
-
-	// Generate 16ms of wave
-	cursor = square_wave(dma_ch, phys, cursor, period, 16000 / period);
-	cursor->next = 0;
-
-	tail = cursor;
-
-	wave_idx = 1;
-
-	dma_cb_dump(fence);
-	dma_channel_run(dma_ch, phys_virt_to_phys(phys, wave0));
+	stepper_set_speed(&ss->sctx, 7);
 
 	while (!exiting) {
-#if 1
-		ret = dma_fence_wait(fence, 10, 5);
+		ret = pi_backend_wait_fence(be);
 		if (ret < 0) {
 			fprintf(stderr, "Timeout waiting for fence.\n");
 			goto fail;
 		};
 
-		if (wave_idx == 1) {
-			head = cursor = wave1;
-			wave_idx = 0;
-			period = 800;
-		} else {
-			head = cursor = wave0;
-			wave_idx = 1;
-			period = 100;
-		}
-
-		// Insert a fence
-		dma_fence(dma_ch, 1, cursor, phys_virt_to_phys(phys, cursor));
-		fence = cursor;
-		cursor->next = phys_virt_to_phys(phys, cursor + 1);
-		cursor++;
-
-		// Generate 16ms of wave
-		cursor = square_wave(dma_ch, phys, cursor, period, 16000 / period);
-		cursor->next = 0;
-
-		tail->next = phys_virt_to_phys(phys, head);
-		tail = cursor;
-#else
-		usleep(1000000);
-		dma_cb_dump(fence);
-#endif
+		pi_backend_wave_start(be);
+		wave_gen(&ctx, 1600);
+		pi_backend_wave_end(be);
 	}
 
 	/*
@@ -218,12 +160,11 @@ int main(int argc, char *argv[])
 	*/
 
 fail:
-	if (dma_ch) {
-		dma_channel_fini(dma_ch);
+	if (gpio) {
+		gpio_fini(gpio);
 	}
-
-	if (phys) {
-		phys_free(phys);
+	if (be) {
+		pi_backend_destroy(be);
 	}
 
 	return 0;
