@@ -20,12 +20,15 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+#include <stddef.h>
+#include <stdio.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
 #include "pi_dma.h"
 #include "pi_clk.h"
 
+#define GPIO_BASE_OFFSET	0x00200000
 #define DMA_BASE_OFFSET		0x00007000
 #define DMA_CHAN_SIZE		0x100
 #define DMA_CHAN_MIN		0
@@ -77,10 +80,14 @@
 #define PCMCLK_DIV		39
 
 struct dma_channel {
+	uint32_t *map;
+	size_t maplen;
 	uint32_t *reg;
-	size_t len;
 
 	enum dma_pacer pacer;
+	uint32_t pace_us;
+
+	uint32_t periph_phys_base;
 };
 
 struct clock_dev *clk_dev;
@@ -118,19 +125,21 @@ struct dma_channel *dma_channel_init(struct board_cfg *board, int channel)
 	if ((channel < DMA_CHAN_MIN) || (channel > DMA_CHAN_MAX)) {
 		return NULL;
 	}
-       
+
 	ch = calloc(1, sizeof(*ch));
 	if (!ch) {
 		return NULL;
 	}
 
+	ch->periph_phys_base = board->periph_phys_base;
 	ch->pacer = PACER_NONE;
-	ch->len = DMA_CHAN_SIZE;
-	ch->reg = map_peripheral(board->periph_virt_base + DMA_BASE_OFFSET + (ch->len * channel),
-				  ch->len);
-	if (ch->reg == MAP_FAILED) {
+	ch->maplen = DMA_CHAN_SIZE * (channel + 1);
+	ch->map = map_peripheral(board->periph_virt_base + DMA_BASE_OFFSET,
+				  ch->maplen);
+	if (ch->map == MAP_FAILED) {
 		goto fail;
 	}
+	ch->reg = ch->map + ((DMA_CHAN_SIZE * channel) / 4);
 
 	return ch;
 
@@ -141,12 +150,11 @@ fail:
 
 void dma_channel_fini(struct dma_channel *ch)
 {
-	dma_channel_setup_pacer(ch, PACER_NONE, 0);
-	ch->reg[DMA_CS] = DMA_RESET;
-	usleep(10);
-
-	if (ch->reg != MAP_FAILED) {
-		munmap(ch->reg, ch->len);
+	if (ch->map != MAP_FAILED) {
+		dma_channel_setup_pacer(ch, PACER_NONE, 0);
+		ch->reg[DMA_CS] = DMA_RESET;
+		usleep(10);
+		munmap(ch->map, ch->maplen);
 	}
 	free(ch);
 }
@@ -194,10 +202,12 @@ void dma_channel_setup_pacer(struct dma_channel *ch, enum dma_pacer pacer,
 		} else if (ch->pacer == PACER_PCM) {
 			pcm_reg[PCM_CS_A] = 1;				// Disable Rx+Tx, Enable PCM block
 			usleep(100);
-			pcm_reg[PCM_CS_A] &= ~(1<<9);			// Disable DMA
+			pcm_reg[PCM_CS_A] = ~(1<<9);			// Disable DMA
 		}
+		break;
 	}
 	ch->pacer = pacer;
+	ch->pace_us = pace_us;
 
 	return;
 }
@@ -206,6 +216,10 @@ void dma_channel_run(struct dma_channel *ch, uint32_t cb_base_phys)
 {
 	// Initialise the DMA
 	ch->reg[DMA_CS] = DMA_RESET;
+	/* TODO: If this sleep is really needed, then we need a "fast" warm
+	 * path which doesn't do the reset (in case of underruns)
+	 * Or is underrun so catastrophic that we don't care?
+	 */
 	usleep(10);
 	ch->reg[DMA_CS] = DMA_INT | DMA_END;
 	ch->reg[DMA_CONBLK_AD] = cb_base_phys;
@@ -215,4 +229,72 @@ void dma_channel_run(struct dma_channel *ch, uint32_t cb_base_phys)
 	if (ch->pacer == PACER_PCM) {
 		pcm_reg[PCM_CS_A] |= 1<<2;			// Enable Tx
 	}
+}
+
+/* TODO: Do we need access to pins 32-53 ? */
+void dma_rising_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_phys)
+{
+	cb->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
+	cb->src = cb_phys + offsetof(dma_cb_t, pad);
+	cb->dst = ch->periph_phys_base + GPIO_BASE_OFFSET + 0x1c;
+	cb->length = 4;
+	cb->stride = 0;
+	cb->next = (uint32_t)NULL;
+	cb->pad[0] = pins;
+}
+
+void dma_falling_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_phys)
+{
+	cb->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
+	cb->src = cb_phys + offsetof(dma_cb_t, pad);
+	cb->dst = ch->periph_phys_base + GPIO_BASE_OFFSET + 0x28;
+	cb->length = 4;
+	cb->stride = 0;
+	cb->next = (uint32_t)NULL;
+	cb->pad[0] = pins;
+}
+
+int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t cb_phys)
+{
+	uint32_t phys_fifo_addr;
+	if (ch->pacer == PACER_NONE || !ch->pace_us) {
+		return -1;
+	}
+
+	if (delay_us % ch->pace_us) {
+		return -1;
+	}
+
+	if (ch->pacer == PACER_PWM) {
+		phys_fifo_addr = (ch->periph_phys_base + PWM_BASE_OFFSET) + 0x18;
+		cb->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | DMA_PER_MAP(5) | DMA_SRC_IGNORE | DMA_TDMODE;
+	} else if (ch->pacer == PACER_PCM) {
+		phys_fifo_addr = (ch->periph_phys_base + PCM_BASE_OFFSET) + 0x04;
+		cb->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | DMA_PER_MAP(2) | DMA_SRC_IGNORE | DMA_TDMODE;
+	}
+
+	delay_us /= ch->pace_us;
+	printf("delay: %d\n", delay_us);
+
+	cb->src = cb_phys + offsetof(dma_cb_t, pad);
+	cb->dst = phys_fifo_addr;
+	cb->length = ((delay_us - 1) << 16) | 4;
+	printf("length: %08x\n", cb->length);
+	cb->stride = 0;
+	cb->next = (uint32_t)NULL;
+
+	return 0;
+}
+
+void dma_channel_dump(struct dma_channel *ch)
+{
+	printf("CS: %08x\n", ch->reg[0]);
+	printf("CAD: %08x\n", ch->reg[1]);
+	printf("TI: %08x\n", ch->reg[2]);
+	printf("SAD: %08x\n", ch->reg[3]);
+	printf("DAD: %08x\n", ch->reg[4]);
+	printf("LEN: %08x\n", ch->reg[5]);
+	printf("STR: %08x\n", ch->reg[6]);
+	printf("NXT: %08x\n", ch->reg[7]);
+	printf("DBG: %08x\n", ch->reg[8]);
 }
