@@ -23,7 +23,7 @@ $(TARGET): $(OBJS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-	$(CC) -MM $(CFLAGS) $*.c > $*.d
+	@$(CC) -MM $(CFLAGS) $*.c > $*.d
 
 clean:
 	rm -f $(OBJS) $(TARGET)
