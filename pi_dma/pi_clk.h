@@ -35,6 +35,6 @@ enum clock_consumer {
 
 struct clock_dev *clock_init(struct board_cfg *board);
 void clock_fini(struct clock_dev *dev);
-int clock_set_rate(struct clock_dev *dev, enum clock_consumer c, unsigned long rate);
+int clock_set_rate(struct clock_dev *dev, enum clock_consumer c, uint64_t rate);
 
 #endif /* __PI_CLK_H__ */

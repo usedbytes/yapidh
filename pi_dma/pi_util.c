@@ -33,7 +33,10 @@
 #include "pi_util.h"
 
 #define BUS_TO_PHYS(x) ((x)&~0xC0000000)
+
+#ifndef ALIGN_UP
 #define ALIGN_UP(_x, _to) (((_x) + ((_to) - 1)) & ~((_to) - 1))
+#endif
 
 /* Determining the board revision is a lot more complicated than it should be
  * (see comments in wiringPi for details).  We will just look at the last two
