@@ -32,8 +32,10 @@ struct source {
 };
 
 struct wave_backend {
+	void (*start_wave)(struct wave_backend *wb);
 	void (*add_delay)(struct wave_backend *wb, int delay);
 	void (*add_event)(struct wave_backend *wb, struct source *s);
+	void (*end_wave)(struct wave_backend *wb);
 };
 
 struct wave_ctx {

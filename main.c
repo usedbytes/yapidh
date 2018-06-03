@@ -118,9 +118,7 @@ int main(int argc, char *argv[])
 		gpio_debug_clear(gpio, 1 << DBG_FENCE_PIN);
 
 		gpio_debug_set(gpio, 1 << DBG_CPUTIME_PIN);
-		pi_backend_wave_start(be);
 		wave_gen(&ctx, 1600);
-		pi_backend_wave_end(be);
 		gpio_debug_clear(gpio, 1 << DBG_CPUTIME_PIN);
 	}
 
