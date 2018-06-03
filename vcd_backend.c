@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "vcd_backend.h"
 #include "types.h"
@@ -145,5 +146,7 @@ struct wave_backend *platform_get_backend(struct platform *p)
 
 int platform_sync(struct platform *p, int timeout_millis)
 {
+	// Just sleep so the output is a bit rate limited
+	usleep(100000);
 	return 0;
 }
