@@ -8,7 +8,7 @@ CFLAGS = -Wall
 CFLAGS += -g -DDEBUG
 LDFLAGS = -lm
 
-PLATFORM = pi
+#PLATFORM = pi
 
 ifeq ($(PLATFORM),pi)
 SRC += pi_platform.c \
@@ -20,6 +20,8 @@ SRC += pi_platform.c \
        pi_hw/mailbox.c
 CFLAGS += -I/opt/vc/include
 LDFLAGS += -lbcm_host -L/opt/vc/lib
+else
+SRC += vcd_backend.c
 endif
 
 OBJS = $(patsubst %.c,%.o,$(SRC))

@@ -24,12 +24,14 @@ struct vcd_backend {
 	struct wave_backend base;
 
 	int n_channels;
+	int *pins;
 
 	int time;
 	uint32_t rising;
 	uint32_t falling;
 };
 
-struct vcd_backend *vcd_backend_create(int n_channels, const char *names[]);
+struct vcd_backend *vcd_backend_create(uint32_t pins);
+void vcd_backend_fini(struct vcd_backend *be);
 
 #endif /* __VCD_BACKEND_H__ */
