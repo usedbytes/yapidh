@@ -2,7 +2,8 @@ TARGET := a.out
 SRC := main.c \
        wave_gen.c \
        step_source.c \
-       step_gen.c
+       step_gen.c \
+       comm.c
 
 CFLAGS = -Wall -g
 CFLAGS += -g -DDEBUG
