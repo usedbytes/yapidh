@@ -212,7 +212,7 @@ void dma_channel_setup_pacer(struct dma_channel *ch, enum dma_pacer pacer,
 	return;
 }
 
-void dma_channel_run(struct dma_channel *ch, uint32_t cb_base_phys)
+void dma_channel_run(struct dma_channel *ch, uint32_t cb_dma_addr)
 {
 	// Initialise the DMA
 	ch->reg[DMA_CS] = DMA_RESET;
@@ -222,7 +222,7 @@ void dma_channel_run(struct dma_channel *ch, uint32_t cb_base_phys)
 	 */
 	usleep(10);
 	ch->reg[DMA_CS] = DMA_INT | DMA_END;
-	ch->reg[DMA_CONBLK_AD] = cb_base_phys;
+	ch->reg[DMA_CONBLK_AD] = cb_dma_addr;
 	ch->reg[DMA_DEBUG] = 7; // clear debug error flags
 	ch->reg[DMA_CS] = 0x10880001;	// go, mid priority, wait for outstanding writes
 
@@ -232,10 +232,10 @@ void dma_channel_run(struct dma_channel *ch, uint32_t cb_base_phys)
 }
 
 /* TODO: Do we need access to pins 32-53 ? */
-void dma_rising_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_phys)
+void dma_rising_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_dma_addr)
 {
 	cb->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
-	cb->src = cb_phys + offsetof(dma_cb_t, pad);
+	cb->src = cb_dma_addr + offsetof(dma_cb_t, pad);
 	cb->dst = ch->periph_phys_base + GPIO_BASE_OFFSET + 0x1c;
 	cb->length = 4;
 	cb->stride = 0;
@@ -243,10 +243,10 @@ void dma_rising_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32
 	cb->pad[0] = pins;
 }
 
-void dma_falling_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_phys)
+void dma_falling_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_dma_addr)
 {
 	cb->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
-	cb->src = cb_phys + offsetof(dma_cb_t, pad);
+	cb->src = cb_dma_addr + offsetof(dma_cb_t, pad);
 	cb->dst = ch->periph_phys_base + GPIO_BASE_OFFSET + 0x28;
 	cb->length = 4;
 	cb->stride = 0;
@@ -254,7 +254,7 @@ void dma_falling_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint3
 	cb->pad[0] = pins;
 }
 
-int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t cb_phys)
+int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t cb_dma_addr)
 {
 	uint32_t phys_fifo_addr;
 	if (ch->pacer == PACER_NONE || !ch->pace_us) {
@@ -275,7 +275,7 @@ int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t 
 
 	delay_us /= ch->pace_us;
 
-	cb->src = cb_phys + offsetof(dma_cb_t, pad);
+	cb->src = cb_dma_addr + offsetof(dma_cb_t, pad);
 	cb->dst = phys_fifo_addr;
 	cb->length = ((delay_us - 1) << 16) | 4;
 	cb->stride = 0;
@@ -284,11 +284,11 @@ int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t 
 	return 0;
 }
 
-void dma_fence(struct dma_channel *ch, uint32_t val, dma_cb_t *cb, uint32_t cb_phys)
+void dma_fence(struct dma_channel *ch, uint32_t val, dma_cb_t *cb, uint32_t cb_dma_addr)
 {
 	cb->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
-	cb->src = cb_phys + offsetof(dma_cb_t, pad);
-	cb->dst = cb_phys + offsetof(dma_cb_t, pad) + 4;
+	cb->src = cb_dma_addr + offsetof(dma_cb_t, pad);
+	cb->dst = cb_dma_addr + offsetof(dma_cb_t, pad) + 4;
 	cb->length = 4;
 	cb->stride = 0;
 	cb->next = (uint32_t)NULL;

@@ -28,9 +28,6 @@
 #define BUS_TO_PHYS(x) ((x)&~0xC0000000)
 
 struct board_cfg {
-	int board_model;
-	int gpio_cfg;
-
 	uint32_t periph_phys_base;
 	uint32_t periph_virt_base;
 	uint32_t dram_phys_base;
@@ -46,6 +43,7 @@ struct phys {
 	uint32_t size;		/* Required size */
 	unsigned mem_ref;	/* From mem_alloc() */
 	unsigned bus_addr;	/* From mem_lock() */
+	unsigned phys_addr;	/* From mem_lock() */
 	uint8_t *virt_addr;	/* From mapmem() */
 };
 
@@ -53,5 +51,6 @@ struct phys *phys_alloc(struct board_cfg *board, size_t len);
 void phys_free(struct phys *p);
 
 uint32_t phys_virt_to_phys(struct phys *phys, void *virt);
+uint32_t phys_virt_to_bus(struct phys *phys, void *virt);
 
 #endif /* __PI_UTIL_H__ */

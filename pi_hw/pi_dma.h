@@ -50,12 +50,12 @@ void dma_channel_fini(struct dma_channel *ch);
 
 void dma_channel_setup_pacer(struct dma_channel *ch, enum dma_pacer pacer,
 			     uint32_t pace_us);
-void dma_channel_run(struct dma_channel *ch, uint32_t cb_base_phys);
+void dma_channel_run(struct dma_channel *ch, uint32_t cb_dma_addr);
 
-void dma_rising_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_phys);
-void dma_falling_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_phys);
-int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t cb_phys);
-void dma_fence(struct dma_channel *ch, uint32_t val, dma_cb_t *cb, uint32_t cb_phys);
+void dma_rising_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_dma_addr);
+void dma_falling_edge(struct dma_channel *ch, uint32_t pins, dma_cb_t *cb, uint32_t cb_dma_addr);
+int dma_delay(struct dma_channel *ch, uint32_t delay_us, dma_cb_t *cb, uint32_t cb_dma_addr);
+void dma_fence(struct dma_channel *ch, uint32_t val, dma_cb_t *cb, uint32_t cb_dma_addr);
 int dma_fence_wait(dma_cb_t *cb, int timeout_millis, int sleep_millis);
 bool dma_fence_signaled(dma_cb_t *cb);
 

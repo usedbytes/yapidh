@@ -46,12 +46,11 @@
  */
 int get_model_and_revision(struct board_cfg *board)
 {
-	char buf[128], revstr[128], modelstr[128];
-	char *ptr, *end, *res;
-	int board_revision;
+	char buf[128], modelstr[128];
+	char *res;
 	FILE *fp;
 
-	revstr[0] = modelstr[0] = '\0';
+	modelstr[0] = '\0';
 
 	fp = fopen("/proc/cpuinfo", "r");
 	if (!fp) {
@@ -60,54 +59,21 @@ int get_model_and_revision(struct board_cfg *board)
 	}
 
 	while ((res = fgets(buf, 128, fp))) {
-		if (!strncasecmp("hardware", buf, 8))
+		if (!strncasecmp("model name", buf, 10))
 			memcpy(modelstr, buf, 128);
-		else if (!strncasecmp(buf, "revision", 8))
-			memcpy(revstr, buf, 128);
 	}
 	fclose(fp);
 
 	if (modelstr[0] == '\0') {
-		perror("No 'Hardware' record in /proc/cpuinfo");
+		perror("No 'model name' record in /proc/cpuinfo");
 		return -1;
 	}
 
-	if (revstr[0] == '\0') {
-		perror("No 'Revision' record in /proc/cpuinfo\n");
-		return -1;
-	}
-
-	if (strstr(modelstr, "BCM2708")) {
-		board->board_model = 1;
-	} else if (strstr(modelstr, "BCM2709") || strstr(modelstr, "BCM2835")) {
-		board->board_model = 2;
-	} else { 
-		perror("Cannot parse the hardware name string");
-		return -1;
-	}
-
-	/* Revisions documented at http://elinux.org/RPi_HardwareHistory */
-	ptr = revstr + strlen(revstr) - 3;
-	board_revision = strtol(ptr, &end, 16);
-	if (end != ptr + 2) {
-		perror("Failed to parse Revision string");
-		return -1;
-	}
-
-	if (board_revision < 1) {
-		perror("servod: Invalid board Revision\n");
-		return -1;
-	} else if (board_revision < 4) {
-		board->gpio_cfg = 1;
-	} else if (board_revision < 16) {
-		board->gpio_cfg = 2;
-	} else {
-		board->gpio_cfg = 3;
-	}
-
-	board->periph_virt_base = bcm_host_get_peripheral_address();
-	board->dram_phys_base = bcm_host_get_sdram_address();
-	board->periph_phys_base = 0x7e000000;
+	/*
+	 * Inspired by pigpio, use the CPU arch to determine the mem attributes.
+	 * The method used by servod seems to be incorrect (gives 0x4 on my Pi
+	 * Zero)
+	 */
 	/*
 	 * See https://github.com/raspberrypi/firmware/wiki/Mailbox-property-interface
 	 *
@@ -122,11 +88,23 @@ int get_model_and_revision(struct board_cfg *board)
 	 * 64: MEM_FLAG_HINT_PERMALOCK = 1 << 6	// Likely to be locked for long periods of time
 	 *
 	 */
-	if (board->board_model == 1) {
-		board->mem_flag         = 0x0c;	/* MEM_FLAG_DIRECT | MEM_FLAG_COHERENT */
-	} else {
-		board->mem_flag         = 0x04;	/* MEM_FLAG_DIRECT */
+	if (strstr (modelstr, "ARMv6") != NULL)
+	{
+		/* On BCM2835 we can take "advantage" of the GPU L2 */
+		board->mem_flag  = 0x0C;
 	}
+	else if (strstr (modelstr, "ARMv7") != NULL)
+	{
+		board->mem_flag  = 0x04;
+	}
+	else if (strstr (modelstr, "ARMv8") != NULL)
+	{
+		board->mem_flag  = 0x04;
+	}
+
+	board->periph_virt_base = bcm_host_get_peripheral_address();
+	board->dram_phys_base = bcm_host_get_sdram_address();
+	board->periph_phys_base = 0x7e000000;
 
 	return 0;
 }
@@ -180,6 +158,7 @@ struct phys *phys_alloc(struct board_cfg *board, size_t len)
 		perror("Failed to lock memory");
 		goto fail;
 	}
+	p->phys_addr = BUS_TO_PHYS(p->bus_addr);
 
 	p->virt_addr = mapmem(BUS_TO_PHYS(p->bus_addr), p->size);
 	if (p->virt_addr == MAP_FAILED) {
@@ -209,9 +188,16 @@ void phys_free(struct phys *p)
 	free(p);
 }
 
-uint32_t phys_virt_to_phys(struct phys *p, void *virt)
+uint32_t phys_virt_to_bus(struct phys *p, void *virt)
 {
 	uint32_t offset = (uint8_t *)virt - p->virt_addr;
 
 	return p->bus_addr + offset;
+}
+
+uint32_t phys_virt_to_phys(struct phys *p, void *virt)
+{
+	uint32_t offset = (uint8_t *)virt - p->virt_addr;
+
+	return p->phys_addr + offset;
 }

@@ -57,19 +57,19 @@ static dma_cb_t *square_wave(struct dma_channel *ch, struct phys *phys, dma_cb_t
 
 	for (i = 0; i < cycles; i++) {
 		dma_rising_edge(ch, (1 << 4), cb, phys_virt_to_phys(phys, cb));
-		cb->next = phys_virt_to_phys(phys, cb + 1);
+		cb->next = phys_virt_to_bus(phys, cb + 1);
 		cb++;
 
 		dma_delay(ch, period_us / 2, cb, phys_virt_to_phys(phys, cb));
-		cb->next = phys_virt_to_phys(phys, cb + 1);
+		cb->next = phys_virt_to_bus(phys, cb + 1);
 		cb++;
 
 		dma_falling_edge(ch, (1 << 4), cb, phys_virt_to_phys(phys, cb));
-		cb->next = phys_virt_to_phys(phys, cb + 1);
+		cb->next = phys_virt_to_bus(phys, cb + 1);
 		cb++;
 
 		dma_delay(ch, period_us / 2, cb, phys_virt_to_phys(phys, cb));
-		cb->next = phys_virt_to_phys(phys, cb + 1);
+		cb->next = phys_virt_to_bus(phys, cb + 1);
 		cb++;
 	}
 
@@ -97,8 +97,6 @@ int main(int argc, char *argv[])
 	}
 
 	printf("Board:\n");
-	printf("Model: %d\n", board.board_model);
-	printf("GPIO_Cfg: %d\n", board.gpio_cfg);
 	printf("Periph phys: %08x\n", board.periph_phys_base);
 	printf("Periph virt: %08x\n", board.periph_virt_base);
 	printf("Dram phys: %08x\n", board.dram_phys_base);

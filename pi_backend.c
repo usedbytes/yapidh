@@ -66,16 +66,16 @@ static void pi_backend_add_delay(struct wave_backend *wb, int delay)
 	struct pi_backend *be = (struct pi_backend *)wb;
 	dma_cb_t *cb = be->cursor;
 
-	dma_rising_edge(be->dma, be->rising, cb, phys_virt_to_phys(be->phys, cb));
-	cb->next = phys_virt_to_phys(be->phys, cb + 1);
+	dma_rising_edge(be->dma, be->rising, cb, phys_virt_to_bus(be->phys, cb));
+	cb->next = phys_virt_to_bus(be->phys, cb + 1);
 	cb++;
 
-	dma_falling_edge(be->dma, be->falling, cb, phys_virt_to_phys(be->phys, cb));
-	cb->next = phys_virt_to_phys(be->phys, cb + 1);
+	dma_falling_edge(be->dma, be->falling, cb, phys_virt_to_bus(be->phys, cb));
+	cb->next = phys_virt_to_bus(be->phys, cb + 1);
 	cb++;
 
-	dma_delay(be->dma, delay * DMA_TICK_US, cb, phys_virt_to_phys(be->phys, cb));
-	cb->next = phys_virt_to_phys(be->phys, cb + 1);
+	dma_delay(be->dma, delay * DMA_TICK_US, cb, phys_virt_to_bus(be->phys, cb));
+	cb->next = phys_virt_to_bus(be->phys, cb + 1);
 	cb++;
 
 	be->cursor = cb;
@@ -84,7 +84,7 @@ static void pi_backend_add_delay(struct wave_backend *wb, int delay)
 
 struct pi_backend *pi_backend_create(struct board_cfg *board)
 {
-	uint32_t cb_phys;
+	uint32_t cb_dma_addr;
 	struct pi_backend *be = calloc(1, sizeof(*be));
 	if (!be) {
 		return NULL;
@@ -113,18 +113,18 @@ struct pi_backend *pi_backend_create(struct board_cfg *board)
 	 * Start the DMA off looping in wave 1. Fence included only for
 	 * consistency
 	 */
-	cb_phys = phys_virt_to_phys(be->phys, &be->waves[be->wave_idx][0]);
-	dma_fence(be->dma, 1, &be->waves[be->wave_idx][0], cb_phys);
+	cb_dma_addr = phys_virt_to_bus(be->phys, &be->waves[be->wave_idx][0]);
+	dma_fence(be->dma, 1, &be->waves[be->wave_idx][0], cb_dma_addr);
 	be->fence = &be->waves[be->wave_idx][0];
-	be->waves[be->wave_idx][0].next = cb_phys + sizeof(dma_cb_t);
+	be->waves[be->wave_idx][0].next = cb_dma_addr + sizeof(dma_cb_t);
 
-	dma_delay(be->dma, 8000, be->waves[be->wave_idx] + 1, cb_phys + sizeof(dma_cb_t));
-	be->waves[be->wave_idx][1].next = cb_phys;
+	dma_delay(be->dma, 8000, be->waves[be->wave_idx] + 1, cb_dma_addr + sizeof(dma_cb_t));
+	be->waves[be->wave_idx][1].next = cb_dma_addr;
 	be->tail = &be->waves[be->wave_idx][1];
 
 	be->wave_idx = !be->wave_idx;
 
-	dma_channel_run(be->dma, cb_phys);
+	dma_channel_run(be->dma, cb_dma_addr);
 
 	return be;
 
@@ -149,9 +149,9 @@ void pi_backend_wave_start(struct pi_backend *be)
 	be->cursor = be->waves[be->wave_idx];
 
 	// Insert a fence
-	dma_fence(be->dma, 1, be->cursor, phys_virt_to_phys(be->phys, be->cursor));
+	dma_fence(be->dma, 1, be->cursor, phys_virt_to_bus(be->phys, be->cursor));
 	be->fence = be->cursor;
-	be->cursor->next = phys_virt_to_phys(be->phys, be->cursor + 1);
+	be->cursor->next = phys_virt_to_bus(be->phys, be->cursor + 1);
 	be->cursor++;
 }
 
@@ -160,10 +160,10 @@ void pi_backend_wave_end(struct pi_backend *be)
 	// Insert a dummy transaction - if the last "real" element is a long
 	// delay, then it could get loaded (and so the "->next" pointer frozen)
 	// before we set up the next segment.
-	dma_fence(be->dma, 1, be->cursor, phys_virt_to_phys(be->phys, be->cursor));
+	dma_fence(be->dma, 1, be->cursor, phys_virt_to_bus(be->phys, be->cursor));
 	be->cursor->next = (uint32_t)NULL;
 
-	be->tail->next = phys_virt_to_phys(be->phys, be->waves[be->wave_idx]);
+	be->tail->next = phys_virt_to_bus(be->phys, be->waves[be->wave_idx]);
 
 	//dma_cb_dump(be->tail);
 	be->tail = be->cursor;
