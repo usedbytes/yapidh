@@ -29,8 +29,11 @@ struct step_ctx {
 
 	double n;
 	double target_n;
+	double speed;
 
 	double c;
+
+	int steady;
 };
 
 void stepper_set_speed(struct step_ctx *c, double speed);

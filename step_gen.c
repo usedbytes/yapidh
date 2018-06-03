@@ -35,6 +35,8 @@ static double same_sign(double a, double b)
 
 void stepper_set_speed(struct step_ctx *c, double speed)
 {
+	c->steady = 0;
+	c->speed = speed;
 	c->target_n = (speed * speed) / (2 * c->alpha * c->accel);
 	if (c->target_n < fabs(c->n)) {
 		c->target_n = -c->target_n;
@@ -54,7 +56,11 @@ void stepper_tick(struct step_ctx *c)
 	if (c->n >= c->target_n) {
 		if (c->target_n == 0.0f) {
 			// Disable motor.
+		} else if (!c->steady) {
+			c->c = (c->alpha * c->f) / c->speed;
+			c->steady = 1;
 		}
+
 		return;
 	}
 
