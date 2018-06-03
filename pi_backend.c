@@ -43,7 +43,6 @@ struct pi_backend {
 	dma_cb_t *cursor;
 
 	// Debug
-	uint32_t max_cbs;
 	dma_cb_t *prev_tail;
 
 	// Not owned by us. (and debug only... FIXME: this is ugly)
@@ -140,10 +139,9 @@ static void pi_backend_end_wave(struct wave_backend *wb)
 	be->tail->next = phys_virt_to_bus(be->phys, be->waves[be->wave_idx]);
 	be->tail = be->cursor;
 
-	n_cbs = (be->cursor - be->waves[be->wave_idx]) / sizeof(dma_cb_t);
-	if (n_cbs > be->max_cbs) {
-		be->max_cbs = n_cbs;
-		fprintf(stderr, "Max CBS: %d\n", n_cbs);
+	n_cbs = be->cursor - be->waves[be->wave_idx];
+	if (n_cbs > (N_CBS / 4)) {
+		fprintf(stderr, "Used %d (of %d) CBs for this wave\n", n_cbs, N_CBS / 2);
 	}
 	be->cursor = NULL;
 	be->wave_idx = !be->wave_idx;
@@ -226,6 +224,14 @@ int pi_backend_wait_fence(struct pi_backend *be, int timeout_millis,
 
 void pi_backend_dump(struct pi_backend *be)
 {
+	fprintf(stderr, "waves[0]: %p\n", be->waves[0]);
+	dma_cb_dump(be->waves[0]);
+	fprintf(stderr, "---\n");
+
+	fprintf(stderr, "waves[1]: %p\n", be->waves[1]);
+	dma_cb_dump(be->waves[1]);
+	fprintf(stderr, "---\n");
+
 	fprintf(stderr, "Prev Tail:\n");
 	dma_cb_dump(be->prev_tail);
 	fprintf(stderr, "---\n");
@@ -236,5 +242,9 @@ void pi_backend_dump(struct pi_backend *be)
 
 	fprintf(stderr, "Tail:\n");
 	dma_cb_dump(be->tail);
+	fprintf(stderr, "---\n");
+
+	fprintf(stderr, "Dma chan\n");
+	dma_channel_dump(be->dma);
 	fprintf(stderr, "---\n");
 }

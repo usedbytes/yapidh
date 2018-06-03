@@ -55,6 +55,7 @@
 #define PCM_LEN			0x24
 
 #define PWM_CTL			(0x00/4)
+#define PWM_STA			(0x04/4)
 #define PWM_DMAC		(0x08/4)
 #define PWM_RNG1		(0x10/4)
 #define PWM_FIFO		(0x18/4)
@@ -335,6 +336,8 @@ void dma_channel_dump(struct dma_channel *ch)
 	printf("STR: %08x\n", ch->reg[6]);
 	printf("NXT: %08x\n", ch->reg[7]);
 	printf("DBG: %08x\n", ch->reg[8]);
+
+	printf("PWM STA: %08x\n", pwm_reg[PWM_STA]);
 }
 
 void dma_cb_dump(dma_cb_t *cb)
