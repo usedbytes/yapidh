@@ -34,23 +34,29 @@ void wave_gen(struct wave_ctx *c, int budget)
 		min = budget;
 
 		for (i = 0; i < c->n_sources; i++) {
-			// TODO: Should combine events where possible
 			if (c->t[i] == 0) {
+				/* This source is ready to generate an event */
 				struct source *s = c->sources[i];
 				c->be->add_event(c->be, s);
+				/* Find the time until the next event */
 				c->t[i] = s->get_delay(s);
 			}
+
+			/* Keep track of when the next event is */
 			if (c->t[i] < min) {
 				min = c->t[i];
 			}
 		}
 
+		/* Delay until the next event */
 		c->be->add_delay(c->be, min);
 
+		/* Reduce all the remaining delays */
 		for (i = 0; i < c->n_sources; i++) {
 			c->t[i] -= min;
 		}
 
+		/* Reduce the remaining time available in this chunk */
 		budget -= min;
 	}
 
