@@ -50,33 +50,6 @@ static void setup_sighandlers(void)
 	}
 }
 
-static dma_cb_t *square_wave(struct dma_channel *ch, struct phys *phys, dma_cb_t *cb,
-			     uint32_t period_us, uint32_t cycles)
-{
-	int i;
-
-	for (i = 0; i < cycles; i++) {
-		dma_rising_edge(ch, (1 << 4), cb, phys_virt_to_phys(phys, cb));
-		cb->next = phys_virt_to_bus(phys, cb + 1);
-		cb++;
-
-		dma_delay(ch, period_us / 2, cb, phys_virt_to_phys(phys, cb));
-		cb->next = phys_virt_to_bus(phys, cb + 1);
-		cb++;
-
-		dma_falling_edge(ch, (1 << 4), cb, phys_virt_to_phys(phys, cb));
-		cb->next = phys_virt_to_bus(phys, cb + 1);
-		cb++;
-
-		dma_delay(ch, period_us / 2, cb, phys_virt_to_phys(phys, cb));
-		cb->next = phys_virt_to_bus(phys, cb + 1);
-		cb++;
-	}
-
-	cb--;
-	return cb;
-}
-
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -133,7 +106,7 @@ int main(int argc, char *argv[])
 
 	ctx.be = (struct wave_backend *)be;
 
-	stepper_set_speed(&ss->sctx, 7);
+	stepper_set_speed(&ss->sctx, 24);
 
 	while (!exiting) {
 		gpio_debug_set(gpio, 1 << DBG_FENCE_PIN);
@@ -150,29 +123,6 @@ int main(int argc, char *argv[])
 		pi_backend_wave_end(be);
 		gpio_debug_clear(gpio, 1 << DBG_CPUTIME_PIN);
 	}
-
-	/*
-	int i;
-	struct step_source *ss = step_source_create();
-	struct step_source *ss2 = step_source_create();
-	const char *names[] = {
-		"ch0", "ch1", "ch2", "ch3",
-	};
-	struct vcd_backend *be = vcd_backend_create(4, names);
-
-	struct wave_ctx ctx = {
-		.n_sources = 2,
-		.sources = { &ss->base, &ss2->base },
-		.be = &be->base,
-	};
-
-	stepper_set_speed(&ss2->sctx, 7);
-	stepper_set_speed(&ss->sctx, 24);
-
-	for (i = 0; i < 60; i++) {
-		wave_gen(&ctx, 1600);
-	}
-	*/
 
 fail:
 	if (gpio) {
