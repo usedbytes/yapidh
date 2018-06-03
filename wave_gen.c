@@ -26,6 +26,10 @@ void wave_gen(struct wave_ctx *c, int budget)
 {
 	int i, min;
 
+	if (c->be->start_wave) {
+		c->be->start_wave(c->be);
+	}
+
 	while (budget) {
 		min = budget;
 
@@ -48,5 +52,9 @@ void wave_gen(struct wave_ctx *c, int budget)
 		}
 
 		budget -= min;
+	}
+
+	if (c->be->end_wave) {
+		c->be->end_wave(c->be);
 	}
 }

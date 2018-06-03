@@ -14,35 +14,73 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "step_source.h"
 #include "step_gen.h"
 #include "wave_gen.h"
-#include "vcd_backend.h"
+
+#include "platform.h"
+
+volatile bool exiting = false;
+static void sig_handler(int dummy)
+{
+	exiting = true;
+}
+
+static void setup_sighandlers(void)
+{
+	int i;
+
+	// Catch all signals possible - it is vital we kill the DMA engine
+	// on process exit!
+	for (i = 0; i < 64; i++) {
+		struct sigaction sa;
+
+		memset(&sa, 0, sizeof(sa));
+		sa.sa_handler = sig_handler;
+		sigaction(i, &sa, NULL);
+	}
+}
 
 int main(int argc, char *argv[])
 {
-	int i;
-	struct step_source *ss = step_source_create();
-	struct step_source *ss2 = step_source_create();
-	const char *names[] = {
-		"ch0", "ch1", "ch2", "ch3",
-	};
-	struct vcd_backend *be = vcd_backend_create(4, names);
-
+	int ret = 0;
+	struct step_source *ss = step_source_create(4);
 	struct wave_ctx ctx = {
-		.n_sources = 2,
-		.sources = { &ss->base, &ss2->base },
-		.be = &be->base,
+		.n_sources = 1,
+		.sources = { &ss->base },
 	};
 
-	stepper_set_speed(&ss2->sctx, 7);
+	uint32_t pins = (1 << 4);
+
+	struct platform *p = platform_init(pins);
+	if (!p) {
+		fprintf(stderr, "Platform creation failed\n");
+		return 1;
+	}
+
+	setup_sighandlers();
+
+	ctx.be = platform_get_backend(p);
+
 	stepper_set_speed(&ss->sctx, 24);
 
-	for (i = 0; i < 60; i++) {
+	while (!exiting) {
+		ret = platform_sync(p, 1000);
+		if (ret) {
+			fprintf(stderr, "Timeout waiting for fence\n");
+			goto fail;
+		}
+
 		wave_gen(&ctx, 1600);
 	}
 
-	return 0;
+fail:
+	platform_fini(p);
+	return ret;
 }

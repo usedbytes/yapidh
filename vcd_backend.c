@@ -38,18 +38,31 @@ static void vcd_backend_add_event(struct wave_backend *wb, struct source *s)
 	}
 }
 
+static char get_id(struct vcd_backend *be, int pin)
+{
+	int i;
+	for (i = 0; i < be->n_channels; i++) {
+		if (pin == be->pins[i]) {
+			return '!' + i;
+		}
+	}
+
+	fprintf(stderr, "Unknown pin %d\n", pin);
+	return '\0';
+}
+
 static void vcd_backend_add_delay(struct wave_backend *wb, int delay)
 {
 	struct vcd_backend *be = (struct vcd_backend *)wb;
 	int i;
 
 	printf("#%d ", be->time);
-	for (i = 0; i < be->n_channels; i++) {
+	for (i = 0; i < 32; i++) {
 		if (be->rising & (1 << i)) {
-			printf("1%c ", '!' + i);
+			printf("1%c ", get_id(be, i));
 		}
 		if (be->falling & (1 << i)) {
-			printf("0%c ", '!' + i);
+			printf("0%c ", get_id(be, i));
 		}
 	}
 	printf("\n");
@@ -58,21 +71,79 @@ static void vcd_backend_add_delay(struct wave_backend *wb, int delay)
 	be->time += delay;
 }
 
-struct vcd_backend *vcd_backend_create(int n_channels, const char *names[])
+void vcd_backend_fini(struct vcd_backend *be)
+{
+	free(be);
+}
+
+struct vcd_backend *vcd_backend_create(uint32_t pins)
 {
 	struct vcd_backend *be = calloc(1, sizeof(*be));
-	int i;
+	int i, n;
 
 	be->base.add_delay = vcd_backend_add_delay;
 	be->base.add_event = vcd_backend_add_event;
 
-	be->n_channels = n_channels;
-	printf("$timescale 10 us $end\n");
-	for (i = 0; i < be->n_channels; i++) {
-		printf("$var wire 1 %c %s $end\n", '!' + i, names[i]);
+	for (i = 0; i < 32; i++) {
+		if (pins & (1 << i)) {
+			be->n_channels++;
+		}
 	}
+	be->pins = calloc(be->n_channels, sizeof(*be->pins));
+
+	printf("$timescale 10 us $end\n");
+
+	n = 0;
+	for (i = 0; i < 32; i++) {
+		if (pins & (1 << i)) {
+			be->pins[n] = i;
+			printf("$var wire 1 %c pin%d $end\n", '!' + n, i);
+			n++;
+		}
+	}
+
 	printf("$enddefinitions $end\n");
 
-
 	return be;
+}
+
+struct platform {
+	struct vcd_backend *be;
+};
+
+void platform_fini(struct platform *p)
+{
+	if (p->be) {
+		vcd_backend_fini(p->be);
+	}
+	free(p);
+}
+
+struct platform *platform_init(uint32_t pins)
+{
+	struct platform *p = calloc(1, sizeof(*p));
+	if (!p) {
+		return NULL;
+	}
+
+	p->be = vcd_backend_create(pins);
+	if (!p->be) {
+		goto fail;
+	}
+
+	return p;
+
+fail:
+	platform_fini(p);
+	return NULL;
+}
+
+struct wave_backend *platform_get_backend(struct platform *p)
+{
+	return (struct wave_backend *)p->be;
+}
+
+int platform_sync(struct platform *p, int timeout_millis)
+{
+	return 0;
 }

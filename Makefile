@@ -1,9 +1,30 @@
 TARGET := a.out
-SRC := main.c wave_gen.c step_source.c step_gen.c vcd_backend.c
-OBJS = $(patsubst %.c,%.o,$(SRC))
+SRC := main.c \
+       wave_gen.c \
+       step_source.c \
+       step_gen.c
 
-CFLAGS = -Wall -g
+CFLAGS = -Wall
+CFLAGS += -g -DDEBUG
 LDFLAGS = -lm
+
+#PLATFORM = pi
+
+ifeq ($(PLATFORM),pi)
+SRC += pi_platform.c \
+       pi_backend.c \
+       pi_hw/pi_clk.c \
+       pi_hw/pi_dma.c \
+       pi_hw/pi_gpio.c \
+       pi_hw/pi_util.c \
+       pi_hw/mailbox.c
+CFLAGS += -I/opt/vc/include
+LDFLAGS += -lbcm_host -L/opt/vc/lib
+else
+SRC += vcd_backend.c
+endif
+
+OBJS = $(patsubst %.c,%.o,$(SRC))
 
 all: $(TARGET)
 
@@ -14,9 +35,9 @@ $(TARGET): $(OBJS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-	$(CC) -MM $(CFLAGS) $*.c > $*.d
+	@$(CC) -MM $(CFLAGS) $*.c > $*.d
 
 clean:
-	rm -f *.o $(TARGET)
+	rm -f $(OBJS) $(TARGET)
 
 .PHONY: clean all

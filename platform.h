@@ -14,24 +14,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#ifndef __VCD_BACKEND_H__
-#define __VCD_BACKEND_H__
+#ifndef __PLATFORM_H__
+#define __PLATFORM_H__
 #include <stdint.h>
 
-#include "wave_gen.h"
+struct platform;
 
-struct vcd_backend {
-	struct wave_backend base;
+struct platform *platform_init(uint32_t pins);
+void platform_fini(struct platform *p);
 
-	int n_channels;
-	int *pins;
+struct wave_backend *platform_get_backend(struct platform *);
+int platform_sync(struct platform *, int timeout_millis);
 
-	int time;
-	uint32_t rising;
-	uint32_t falling;
-};
+#endif /* __PLATFORM_H__ */
 
-struct vcd_backend *vcd_backend_create(uint32_t pins);
-void vcd_backend_fini(struct vcd_backend *be);
-
-#endif /* __VCD_BACKEND_H__ */

@@ -1,5 +1,11 @@
 /*
  * Copyright (c) 2018 Brian Starkey <stark3y@gmail.com>
+ * Portions derived from servod.
+ * Copyright (c) 2013 Richard Hirst <richardghirst@gmail.com>
+ *
+ * This program provides very similar functionality to servoblaster, except
+ * that rather than implementing it as a kernel module, servod implements
+ * the functionality as a usr space daemon.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,24 +20,21 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#ifndef __VCD_BACKEND_H__
-#define __VCD_BACKEND_H__
+#ifndef __PI_CLK_H__
+#define __PI_CLK_H__
 #include <stdint.h>
 
-#include "wave_gen.h"
+#include "pi_util.h"
 
-struct vcd_backend {
-	struct wave_backend base;
+struct clock_dev;
 
-	int n_channels;
-	int *pins;
-
-	int time;
-	uint32_t rising;
-	uint32_t falling;
+enum clock_consumer {
+	CLOCK_CONSUMER_PWM,
+	CLOCK_CONSUMER_PCM,
 };
 
-struct vcd_backend *vcd_backend_create(uint32_t pins);
-void vcd_backend_fini(struct vcd_backend *be);
+struct clock_dev *clock_init(struct board_cfg *board);
+void clock_fini(struct clock_dev *dev);
+int clock_set_rate(struct clock_dev *dev, enum clock_consumer c, uint64_t rate);
 
-#endif /* __VCD_BACKEND_H__ */
+#endif /* __PI_CLK_H__ */

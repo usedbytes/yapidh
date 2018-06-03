@@ -14,24 +14,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#ifndef __VCD_BACKEND_H__
-#define __VCD_BACKEND_H__
-#include <stdint.h>
+#ifndef __PI_BACKEND_H__
+#define __PI_BACKEND_H__
+#include "pi_hw/pi_util.h"
+#include "pi_hw/pi_gpio.h"
 
-#include "wave_gen.h"
+struct pi_backend;
 
-struct vcd_backend {
-	struct wave_backend base;
+struct pi_backend *pi_backend_create(struct board_cfg *board, struct gpio_dev *gpio);
+void pi_backend_destroy(struct pi_backend *be);
 
-	int n_channels;
-	int *pins;
+int pi_backend_wait_fence(struct pi_backend *be, int timeout_millis,
+			  int sleep_millis);
 
-	int time;
-	uint32_t rising;
-	uint32_t falling;
-};
-
-struct vcd_backend *vcd_backend_create(uint32_t pins);
-void vcd_backend_fini(struct vcd_backend *be);
-
-#endif /* __VCD_BACKEND_H__ */
+#endif /* __PI_BACKEND_H__ */
