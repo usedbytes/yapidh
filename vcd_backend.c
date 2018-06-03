@@ -150,3 +150,8 @@ int platform_sync(struct platform *p, int timeout_millis)
 	usleep(100000);
 	return 0;
 }
+
+void platform_dump(struct platform *p)
+{
+	return;
+}
