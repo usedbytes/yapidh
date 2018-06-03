@@ -2,18 +2,27 @@ TARGET := a.out
 SRC := main.c \
        wave_gen.c \
        step_source.c \
-       step_gen.c \
+       step_gen.c
+
+CFLAGS = -Wall
+CFLAGS += -g -DDEBUG
+LDFLAGS = -lm
+
+PLATFORM = pi
+
+ifeq ($(PLATFORM),pi)
+SRC += pi_platform.c \
        pi_backend.c \
        pi_hw/pi_clk.c \
        pi_hw/pi_dma.c \
        pi_hw/pi_gpio.c \
        pi_hw/pi_util.c \
        pi_hw/mailbox.c
-OBJS = $(patsubst %.c,%.o,$(SRC))
+CFLAGS += -I/opt/vc/include
+LDFLAGS += -lbcm_host -L/opt/vc/lib
+endif
 
-CFLAGS = -Wall -I/opt/vc/include -lbcm_host -L/opt/vc/lib
-CFLAGS += -g -DDEBUG
-LDFLAGS = -lm
+OBJS = $(patsubst %.c,%.o,$(SRC))
 
 all: $(TARGET)
 

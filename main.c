@@ -23,11 +23,8 @@
 #include "step_source.h"
 #include "step_gen.h"
 #include "wave_gen.h"
-#include "pi_backend.h"
 
-#include "pi_hw/pi_dma.h"
-#include "pi_hw/pi_gpio.h"
-#include "pi_hw/pi_util.h"
+#include "platform.h"
 
 volatile bool exiting = false;
 static void sig_handler(int dummy)
@@ -52,83 +49,35 @@ static void setup_sighandlers(void)
 
 int main(int argc, char *argv[])
 {
-	int ret;
-	struct board_cfg board;
-	struct gpio_dev *gpio = NULL;
-	struct pi_backend *be = NULL;
+	int ret = 0;
 	struct step_source *ss = step_source_create();
 	struct wave_ctx ctx = {
 		.n_sources = 1,
 		.sources = { &ss->base },
 	};
-
-	setup_sighandlers();
-
-	ret = get_model_and_revision(&board);
-	if (ret < 0) {
+	struct platform *p = platform_init();
+	if (!p) {
+		fprintf(stderr, "Platform creation failed\n");
 		return 1;
 	}
 
-	printf("Board:\n");
-	printf("Periph phys: %08x\n", board.periph_phys_base);
-	printf("Periph virt: %08x\n", board.periph_virt_base);
-	printf("Dram phys: %08x\n", board.dram_phys_base);
-	printf("mem_flag: %08x\n", board.mem_flag);
+	setup_sighandlers();
 
-
-	gpio = gpio_init(&board);
-	if (!gpio) {
-		fprintf(stderr, "Couldn't get GPIO\n");
-		goto fail;
-	}
-
-	gpio_set_mode(gpio, 4, GPIO_MODE_OUT);
-	gpio_clear(gpio, (1 << 4));
-
-#ifdef DEBUG
-	gpio_set_mode(gpio, DBG_CHUNK_PIN, GPIO_MODE_OUT);
-	gpio_clear(gpio, (1 << DBG_CHUNK_PIN));
-
-	gpio_set_mode(gpio, DBG_CPUTIME_PIN, GPIO_MODE_OUT);
-	gpio_clear(gpio, (1 << DBG_CPUTIME_PIN));
-
-	gpio_set_mode(gpio, DBG_FENCE_PIN, GPIO_MODE_OUT);
-	gpio_clear(gpio, (1 << DBG_FENCE_PIN));
-
-	sleep(1);
-#endif
-
-	be = pi_backend_create(&board);
-	if (!be) {
-		fprintf(stderr, "Couldn't get backend\n");
-		goto fail;
-	}
-
-	ctx.be = (struct wave_backend *)be;
+	ctx.be = platform_get_backend(p);
 
 	stepper_set_speed(&ss->sctx, 24);
 
 	while (!exiting) {
-		gpio_debug_set(gpio, 1 << DBG_FENCE_PIN);
-		ret = pi_backend_wait_fence(be, 1000, 4);
-		if (ret < 0) {
-			fprintf(stderr, "Timeout waiting for fence.\n");
+		ret = platform_sync(p, 1000);
+		if (ret) {
+			fprintf(stderr, "Timeout waiting for fence\n");
 			goto fail;
-		};
-		gpio_debug_clear(gpio, 1 << DBG_FENCE_PIN);
+		}
 
-		gpio_debug_set(gpio, 1 << DBG_CPUTIME_PIN);
 		wave_gen(&ctx, 1600);
-		gpio_debug_clear(gpio, 1 << DBG_CPUTIME_PIN);
 	}
 
 fail:
-	if (gpio) {
-		gpio_fini(gpio);
-	}
-	if (be) {
-		pi_backend_destroy(be);
-	}
-
-	return 0;
+	platform_fini(p);
+	return ret;
 }

@@ -14,17 +14,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#ifndef __PI_BACKEND_H__
-#define __PI_BACKEND_H__
-#include "pi_hw/pi_util.h"
-#include "pi_hw/pi_gpio.h"
+#ifndef __PLATFORM_H__
+#define __PLATFORM_H__
 
-struct pi_backend;
+struct platform;
 
-struct pi_backend *pi_backend_create(struct board_cfg *board, struct gpio_dev *gpio);
-void pi_backend_destroy(struct pi_backend *be);
+struct platform *platform_init(void);
+void platform_fini(struct platform *p);
 
-int pi_backend_wait_fence(struct pi_backend *be, int timeout_millis,
-			  int sleep_millis);
+struct wave_backend *platform_get_backend(struct platform *);
+int platform_sync(struct platform *, int timeout_millis);
 
-#endif /* __PI_BACKEND_H__ */
+#endif /* __PLATFORM_H__ */
+

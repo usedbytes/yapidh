@@ -41,6 +41,9 @@ struct pi_backend {
 	dma_cb_t *tail;
 	dma_cb_t *fence;
 	dma_cb_t *cursor;
+
+	// Not owned by us. (and debug only... FIXME: this is ugly)
+	struct gpio_dev *gpio;
 };
 
 
@@ -85,6 +88,8 @@ static void pi_backend_add_delay(struct wave_backend *wb, int delay)
 static void pi_backend_start_wave(struct wave_backend *wb)
 {
 	struct pi_backend *be = (struct pi_backend *)wb;
+
+	gpio_debug_set(be->gpio, 1 << DBG_CPUTIME_PIN);
 
 	be->cursor = be->waves[be->wave_idx];
 
@@ -132,9 +137,11 @@ static void pi_backend_end_wave(struct wave_backend *wb)
 
 	be->cursor = NULL;
 	be->wave_idx = !be->wave_idx;
+
+	gpio_debug_clear(be->gpio, 1 << DBG_CPUTIME_PIN);
 }
 
-struct pi_backend *pi_backend_create(struct board_cfg *board)
+struct pi_backend *pi_backend_create(struct board_cfg *board, struct gpio_dev *gpio)
 {
 	uint32_t cb_dma_addr;
 	struct pi_backend *be = calloc(1, sizeof(*be));
@@ -146,6 +153,8 @@ struct pi_backend *pi_backend_create(struct board_cfg *board)
 	be->base.add_delay = pi_backend_add_delay;
 	be->base.add_event = pi_backend_add_event;
 	be->base.end_wave = pi_backend_end_wave;
+
+	be->gpio = gpio;
 
 	be->phys = phys_alloc(board, sizeof(dma_cb_t) * N_CBS);
 	if (!be->phys) {
