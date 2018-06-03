@@ -55,7 +55,10 @@ int main(int argc, char *argv[])
 		.n_sources = 1,
 		.sources = { &ss->base },
 	};
-	struct platform *p = platform_init();
+
+	uint32_t pins = (1 << 4);
+
+	struct platform *p = platform_init(pins);
 	if (!p) {
 		fprintf(stderr, "Platform creation failed\n");
 		return 1;

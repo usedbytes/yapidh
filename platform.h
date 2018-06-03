@@ -16,10 +16,11 @@
  */
 #ifndef __PLATFORM_H__
 #define __PLATFORM_H__
+#include <stdint.h>
 
 struct platform;
 
-struct platform *platform_init(void);
+struct platform *platform_init(uint32_t pins);
 void platform_fini(struct platform *p);
 
 struct wave_backend *platform_get_backend(struct platform *);

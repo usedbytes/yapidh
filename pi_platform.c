@@ -39,9 +39,9 @@ void platform_fini(struct platform *p)
 	free(p);
 }
 
-struct platform *platform_init(void)
+struct platform *platform_init(uint32_t pins)
 {
-	int ret;
+	int ret, i;
 	struct platform *p = calloc(1, sizeof(*p));
 	if (!p) {
 		return NULL;
@@ -63,8 +63,13 @@ struct platform *platform_init(void)
 		goto fail;
 	}
 
-	gpio_set_mode(p->gpio, 4, GPIO_MODE_OUT);
-	gpio_clear(p->gpio, (1 << 4));
+	for (i = 0; i < 32; i++) {
+		if (!(pins & (1 << i))) {
+			continue;
+		}
+		gpio_set_mode(p->gpio, i, GPIO_MODE_OUT);
+		gpio_clear(p->gpio, (1 << i));
+	}
 
 #ifdef DEBUG
 	gpio_set_mode(p->gpio, DBG_CHUNK_PIN, GPIO_MODE_OUT);
