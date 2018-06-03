@@ -77,17 +77,12 @@ int main(int argc, char *argv[])
 
 	ctx.be = platform_get_backend(p);
 
-	srand(1024);
+	srand(42);
 
+#define MAX_SPEED 20
 	int next_change[] = { 0, 0, 0, 0};
-	int speed[] = {
-		random_number(1, 24),
-		random_number(1, 24),
-		random_number(1, 24),
-		random_number(1, 24),
-	};
+	int speed[] = { };
 	int i;
-
 
 	while (!exiting) {
 		ret = platform_sync(p, 1000);
@@ -103,7 +98,10 @@ int main(int argc, char *argv[])
 			if (next_change[i] > 0) {
 				next_change[i]--;
 			} else if (next_change[i] == 0) {
-				step_source_set_speed(ctx.sources[i], random_number(1, 24));
+				speed[i] = random_number(1, MAX_SPEED);
+				step_source_set_speed(ctx.sources[i], speed[i]);
+
+				// Keep this speed for a random number of frames
 				next_change[i] = random_number(0, 60);
 			}
 		}
