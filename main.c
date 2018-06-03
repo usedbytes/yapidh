@@ -1,71 +1,75 @@
-/*
- * Copyright (c) 2018 Brian Starkey <stark3y@gmail.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
-#include "step_source.h"
-#include "step_gen.h"
-#include "wave_gen.h"
 
 #include "platform.h"
+#include "types.h"
+#include "wave_gen.h"
 
-volatile bool exiting = false;
-static void sig_handler(int dummy)
+struct square_wave_source {
+	struct source base;
+
+	int pin;
+	int period;
+	bool rising;
+};
+
+static int square_wave_source_delay(struct source *s)
 {
-	exiting = true;
+	struct square_wave_source *ss = (struct square_wave_source *)s;
+
+	/* Next event is always period / 2 ticks away */
+	return ss->period / 2;
 }
 
-static void setup_sighandlers(void)
+static void square_wave_source_event(struct source *s, struct event *ev)
 {
-	int i;
+	struct square_wave_source *ss = (struct square_wave_source *)s;
 
-	// Catch all signals possible - it is vital we kill the DMA engine
-	// on process exit!
-	for (i = 0; i < 64; i++) {
-		struct sigaction sa;
-
-		memset(&sa, 0, sizeof(sa));
-		sa.sa_handler = sig_handler;
-		sigaction(i, &sa, NULL);
+	ev->channel = ss->pin;
+	if (ss->rising) {
+		ev->type = EVENT_RISING_EDGE;
+	} else {
+		ev->type = EVENT_FALLING_EDGE;
 	}
-}
-
-static int random_number(int min, int max) {
-	int range = max + 1 - min;
-	return (rand() % range) + min;
+	ss->rising = !ss->rising;
 }
 
 int main(int argc, char *argv[])
 {
 	int ret = 0;
+
+	struct square_wave_source sq_1kHz = {
+		.base = {
+			.get_delay = square_wave_source_delay,
+			.gen_event = square_wave_source_event,
+		},
+		/* 10us tick by default - 100 * 10us = 1ms, 1 kHz */
+		.period = 100,
+		.pin = 16,
+	};
+
+	struct square_wave_source sq_3_33kHz = {
+		.base = {
+			.get_delay = square_wave_source_delay,
+			.gen_event = square_wave_source_event,
+		},
+		/* 10us tick by default - 30 * 10us = 300 us, 3.333 kHz */
+		.period = 30,
+		.pin = 19,
+
+		/* Start this wave out-of-phase */
+		.rising = true,
+	};
+
 	struct wave_ctx ctx = {
-		.n_sources = 4,
+		.n_sources = 2,
 		.sources = {
-			(struct source *)step_source_create(16),
-			(struct source *)step_source_create(19),
-			(struct source *)step_source_create(20),
-			(struct source *)step_source_create(21),
+			&sq_1kHz.base,
+			&sq_3_33kHz.base,
 		},
 	};
-	uint32_t pins = (1 << 16) | (1 << 19) | (1 << 20) | (1 << 21);
+	uint32_t pins = (1 << 16) | (1 << 19);
 
 	struct platform *p = platform_init(pins);
 	if (!p) {
@@ -73,38 +77,16 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	setup_sighandlers();
-
 	ctx.be = platform_get_backend(p);
 
-	srand(42);
-
-#define MAX_SPEED 20
-	int next_change[] = { 0, 0, 0, 0};
-	int speed[] = { };
-	int i;
-
-	while (!exiting) {
+	while (1) {
 		ret = platform_sync(p, 1000);
 		if (ret) {
 			fprintf(stderr, "Timeout waiting for fence\n");
-			platform_dump(p);
 			goto fail;
 		}
 
 		wave_gen(&ctx, 1600);
-
-		for (i = 0; i < ctx.n_sources; i++) {
-			if (next_change[i] > 0) {
-				next_change[i]--;
-			} else if (next_change[i] == 0) {
-				speed[i] = random_number(1, MAX_SPEED);
-				step_source_set_speed(ctx.sources[i], speed[i]);
-
-				// Keep this speed for a random number of frames
-				next_change[i] = random_number(0, 60);
-			}
-		}
 	}
 
 fail:
