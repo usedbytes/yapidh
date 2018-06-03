@@ -153,10 +153,32 @@ void pi_backend_wave_start(struct pi_backend *be)
 	be->fence = be->cursor;
 	be->cursor->next = phys_virt_to_bus(be->phys, be->cursor + 1);
 	be->cursor++;
+
+#ifdef DEBUG
+	/* Mark chunks for debugging */
+	if (be->wave_idx) {
+		dma_rising_edge(be->dma, (1 << DBG_CHUNK_PIN), be->cursor, phys_virt_to_bus(be->phys, be->cursor));
+	} else {
+		dma_falling_edge(be->dma, (1 << DBG_CHUNK_PIN), be->cursor, phys_virt_to_bus(be->phys, be->cursor));
+	}
+	be->cursor->next = phys_virt_to_bus(be->phys, be->cursor + 1);
+	be->cursor++;
+#endif
 }
 
 void pi_backend_wave_end(struct pi_backend *be)
 {
+#ifdef DEBUG
+	/* Mark chunks for debugging */
+	if (be->wave_idx) {
+		dma_falling_edge(be->dma, (1 << DBG_CHUNK_PIN), be->cursor, phys_virt_to_bus(be->phys, be->cursor));
+	} else {
+		dma_rising_edge(be->dma, (1 << DBG_CHUNK_PIN), be->cursor, phys_virt_to_bus(be->phys, be->cursor));
+	}
+	be->cursor->next = phys_virt_to_bus(be->phys, be->cursor + 1);
+	be->cursor++;
+#endif
+
 	// Insert a dummy transaction - if the last "real" element is a long
 	// delay, then it could get loaded (and so the "->next" pointer frozen)
 	// before we set up the next segment.
@@ -164,10 +186,7 @@ void pi_backend_wave_end(struct pi_backend *be)
 	be->cursor->next = (uint32_t)NULL;
 
 	be->tail->next = phys_virt_to_bus(be->phys, be->waves[be->wave_idx]);
-
-	//dma_cb_dump(be->tail);
 	be->tail = be->cursor;
-	//dma_cb_dump(be->cursor);
 
 	be->cursor = NULL;
 	be->wave_idx = !be->wave_idx;
@@ -176,8 +195,7 @@ void pi_backend_wave_end(struct pi_backend *be)
 int pi_backend_wait_fence(struct pi_backend *be)
 {
 	int ret;
-	ret =  dma_fence_wait(be->fence, -1000, 0);
-	//dma_cb_dump(be->fence);
+	ret =  dma_fence_wait(be->fence, 1000, 4);
 
 	return ret;
 }

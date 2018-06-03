@@ -41,4 +41,23 @@ enum gpio_mode gpio_get_mode(struct gpio_dev *dev, int gpio);
 void gpio_set(struct gpio_dev *dev, uint32_t gpios);
 void gpio_clear(struct gpio_dev *dev, uint32_t gpios);
 
+#define DBG_CHUNK_PIN   17
+#define DBG_CPUTIME_PIN 18
+#define DBG_FENCE_PIN   22
+
+#ifdef DEBUG
+static inline void gpio_debug_set(struct gpio_dev *dev, uint32_t pins)
+{
+	gpio_set(dev, pins);
+}
+
+static inline void gpio_debug_clear(struct gpio_dev *dev, uint32_t pins)
+{
+	gpio_clear(dev, pins);
+}
+#else
+static inline void gpio_debug_set(struct gpio_dev *dev, uint32_t pins) { }
+static inline void gpio_debug_clear(struct gpio_dev *dev, uint32_t pin) { }
+#endif
+
 #endif /* __PI_GPIO_H__ */

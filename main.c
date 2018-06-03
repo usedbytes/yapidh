@@ -112,6 +112,19 @@ int main(int argc, char *argv[])
 	gpio_set_mode(gpio, 4, GPIO_MODE_OUT);
 	gpio_clear(gpio, (1 << 4));
 
+#ifdef DEBUG
+	gpio_set_mode(gpio, DBG_CHUNK_PIN, GPIO_MODE_OUT);
+	gpio_clear(gpio, (1 << DBG_CHUNK_PIN));
+
+	gpio_set_mode(gpio, DBG_CPUTIME_PIN, GPIO_MODE_OUT);
+	gpio_clear(gpio, (1 << DBG_CPUTIME_PIN));
+
+	gpio_set_mode(gpio, DBG_FENCE_PIN, GPIO_MODE_OUT);
+	gpio_clear(gpio, (1 << DBG_FENCE_PIN));
+
+	sleep(1);
+#endif
+
 	be = pi_backend_create(&board);
 	if (!be) {
 		fprintf(stderr, "Couldn't get backend\n");
@@ -123,15 +136,19 @@ int main(int argc, char *argv[])
 	stepper_set_speed(&ss->sctx, 7);
 
 	while (!exiting) {
+		gpio_debug_set(gpio, 1 << DBG_FENCE_PIN);
 		ret = pi_backend_wait_fence(be);
 		if (ret < 0) {
 			fprintf(stderr, "Timeout waiting for fence.\n");
 			goto fail;
 		};
+		gpio_debug_clear(gpio, 1 << DBG_FENCE_PIN);
 
+		gpio_debug_set(gpio, 1 << DBG_CPUTIME_PIN);
 		pi_backend_wave_start(be);
 		wave_gen(&ctx, 1600);
 		pi_backend_wave_end(be);
+		gpio_debug_clear(gpio, 1 << DBG_CPUTIME_PIN);
 	}
 
 	/*

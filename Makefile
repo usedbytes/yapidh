@@ -11,7 +11,8 @@ SRC := main.c \
        pi_hw/mailbox.c
 OBJS = $(patsubst %.c,%.o,$(SRC))
 
-CFLAGS = -Wall -g -I/opt/vc/include -lbcm_host -L/opt/vc/lib
+CFLAGS = -Wall -I/opt/vc/include -lbcm_host -L/opt/vc/lib
+CFLAGS += -g -DDEBUG
 LDFLAGS = -lm
 
 all: $(TARGET)
