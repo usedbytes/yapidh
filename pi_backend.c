@@ -25,7 +25,7 @@
 #include "types.h"
 #include "wave_gen.h"
 
-#define N_CBS (512)
+#define N_CBS (4096)
 #define DMA_TICK_US 10
 
 struct pi_backend {
