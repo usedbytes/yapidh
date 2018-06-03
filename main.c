@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 
 	while (!exiting) {
 		gpio_debug_set(gpio, 1 << DBG_FENCE_PIN);
-		ret = pi_backend_wait_fence(be);
+		ret = pi_backend_wait_fence(be, 1000, 4);
 		if (ret < 0) {
 			fprintf(stderr, "Timeout waiting for fence.\n");
 			goto fail;

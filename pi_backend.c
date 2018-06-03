@@ -192,10 +192,8 @@ void pi_backend_wave_end(struct pi_backend *be)
 	be->wave_idx = !be->wave_idx;
 }
 
-int pi_backend_wait_fence(struct pi_backend *be)
+int pi_backend_wait_fence(struct pi_backend *be, int timeout_millis,
+			  int sleep_millis)
 {
-	int ret;
-	ret =  dma_fence_wait(be->fence, 1000, 4);
-
-	return ret;
+	return dma_fence_wait(be->fence, timeout_millis, sleep_millis);
 }
