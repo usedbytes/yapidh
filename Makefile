@@ -4,7 +4,7 @@ SRC := main.c \
        step_source.c \
        step_gen.c
 
-CFLAGS = -Wall
+CFLAGS = -Wall -g
 CFLAGS += -g -DDEBUG
 LDFLAGS = -lm
 

@@ -62,3 +62,10 @@ struct step_source *step_source_create(int channel)
 
 	return ss;
 }
+
+void step_source_set_speed(struct source *s, double speed)
+{
+	struct step_source *ss = (struct step_source *)s;
+
+	stepper_set_speed(&ss->sctx, speed);
+}

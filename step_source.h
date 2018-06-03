@@ -37,5 +37,6 @@ struct step_source {
 };
 
 struct step_source *step_source_create(int channel);
+void step_source_set_speed(struct source *s, double speed);
 
 #endif /* __STEP_SOURCE_H__ */

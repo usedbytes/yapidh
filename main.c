@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -47,16 +48,24 @@ static void setup_sighandlers(void)
 	}
 }
 
+static int random_number(int min, int max) {
+	int range = max + 1 - min;
+	return (rand() % range) + min;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret = 0;
-	struct step_source *ss = step_source_create(4);
 	struct wave_ctx ctx = {
-		.n_sources = 1,
-		.sources = { &ss->base },
+		.n_sources = 4,
+		.sources = {
+			(struct source *)step_source_create(16),
+			(struct source *)step_source_create(19),
+			(struct source *)step_source_create(20),
+			(struct source *)step_source_create(21),
+		},
 	};
-
-	uint32_t pins = (1 << 4);
+	uint32_t pins = (1 << 16) | (1 << 19) | (1 << 20) | (1 << 21);
 
 	struct platform *p = platform_init(pins);
 	if (!p) {
@@ -68,7 +77,17 @@ int main(int argc, char *argv[])
 
 	ctx.be = platform_get_backend(p);
 
-	stepper_set_speed(&ss->sctx, 24);
+	srand(1024);
+
+	int next_change[] = { 0, 0, 0, 0};
+	int speed[] = {
+		random_number(1, 24),
+		random_number(1, 24),
+		random_number(1, 24),
+		random_number(1, 24),
+	};
+	int i;
+
 
 	while (!exiting) {
 		ret = platform_sync(p, 1000);
@@ -78,6 +97,15 @@ int main(int argc, char *argv[])
 		}
 
 		wave_gen(&ctx, 1600);
+
+		for (i = 0; i < ctx.n_sources; i++) {
+			if (next_change[i] > 0) {
+				next_change[i]--;
+			} else if (next_change[i] == 0) {
+				step_source_set_speed(ctx.sources[i], random_number(1, 24));
+				next_change[i] = random_number(0, 60);
+			}
+		}
 	}
 
 fail:
