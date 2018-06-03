@@ -25,7 +25,7 @@
 #include "types.h"
 #include "wave_gen.h"
 
-#define N_CBS 4096
+#define N_CBS (512)
 #define DMA_TICK_US 10
 
 struct pi_backend {
@@ -41,6 +41,10 @@ struct pi_backend {
 	dma_cb_t *tail;
 	dma_cb_t *fence;
 	dma_cb_t *cursor;
+
+	// Debug
+	uint32_t max_cbs;
+	dma_cb_t *prev_tail;
 
 	// Not owned by us. (and debug only... FIXME: this is ugly)
 	struct gpio_dev *gpio;
@@ -114,6 +118,7 @@ static void pi_backend_start_wave(struct wave_backend *wb)
 static void pi_backend_end_wave(struct wave_backend *wb)
 {
 	struct pi_backend *be = (struct pi_backend *)wb;
+	uint32_t n_cbs;
 
 #ifdef DEBUG
 	/* Mark chunks for debugging */
@@ -135,6 +140,11 @@ static void pi_backend_end_wave(struct wave_backend *wb)
 	be->tail->next = phys_virt_to_bus(be->phys, be->waves[be->wave_idx]);
 	be->tail = be->cursor;
 
+	n_cbs = (be->cursor - be->waves[be->wave_idx]) / sizeof(dma_cb_t);
+	if (n_cbs > be->max_cbs) {
+		be->max_cbs = n_cbs;
+		fprintf(stderr, "Max CBS: %d\n", n_cbs);
+	}
 	be->cursor = NULL;
 	be->wave_idx = !be->wave_idx;
 
@@ -183,6 +193,7 @@ struct pi_backend *pi_backend_create(struct board_cfg *board, struct gpio_dev *g
 
 	dma_delay(be->dma, 8000, be->waves[be->wave_idx] + 1, cb_dma_addr + sizeof(dma_cb_t));
 	be->waves[be->wave_idx][1].next = cb_dma_addr;
+	be->prev_tail = be->tail;
 	be->tail = &be->waves[be->wave_idx][1];
 
 	be->wave_idx = !be->wave_idx;
@@ -211,4 +222,19 @@ int pi_backend_wait_fence(struct pi_backend *be, int timeout_millis,
 			  int sleep_millis)
 {
 	return dma_fence_wait(be->fence, timeout_millis, sleep_millis);
+}
+
+void pi_backend_dump(struct pi_backend *be)
+{
+	fprintf(stderr, "Prev Tail:\n");
+	dma_cb_dump(be->prev_tail);
+	fprintf(stderr, "---\n");
+
+	fprintf(stderr, "Fence:\n");
+	dma_cb_dump(be->fence);
+	fprintf(stderr, "---\n");
+
+	fprintf(stderr, "Tail:\n");
+	dma_cb_dump(be->tail);
+	fprintf(stderr, "---\n");
 }

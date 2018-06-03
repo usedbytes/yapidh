@@ -109,3 +109,7 @@ int platform_sync(struct platform *p, int timeout_millis) {
 	gpio_debug_clear(p->gpio, 1 << DBG_FENCE_PIN);
 	return ret;
 }
+
+void platform_dump(struct platform *p) {
+	pi_backend_dump(p->be);
+}

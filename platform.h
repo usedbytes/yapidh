@@ -25,6 +25,7 @@ void platform_fini(struct platform *p);
 
 struct wave_backend *platform_get_backend(struct platform *);
 int platform_sync(struct platform *, int timeout_millis);
+void platform_dump(struct platform *p);
 
 #endif /* __PLATFORM_H__ */
 

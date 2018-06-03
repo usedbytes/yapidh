@@ -26,5 +26,6 @@ void pi_backend_destroy(struct pi_backend *be);
 
 int pi_backend_wait_fence(struct pi_backend *be, int timeout_millis,
 			  int sleep_millis);
+void pi_backend_dump(struct pi_backend *be);
 
 #endif /* __PI_BACKEND_H__ */

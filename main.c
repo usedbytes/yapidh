@@ -93,6 +93,7 @@ int main(int argc, char *argv[])
 		ret = platform_sync(p, 1000);
 		if (ret) {
 			fprintf(stderr, "Timeout waiting for fence\n");
+			platform_dump(p);
 			goto fail;
 		}
 
