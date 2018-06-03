@@ -305,14 +305,19 @@ bool dma_fence_signaled(dma_cb_t *cb)
 int dma_fence_wait(dma_cb_t *cb, int timeout_millis, int sleep_millis)
 {
 	int us = sleep_millis * 1000;
+	int timeout = -1;
+	if (timeout_millis >= 0) {
+		timeout = (timeout_millis + sleep_millis - 1) / sleep_millis;
+	}
+
 	while (1) {
 		if (dma_fence_signaled(cb)) {
 			return 0;
 		}
 
-		if (timeout_millis > 0) {
-			timeout_millis--;
-		} else if (timeout_millis == 0) {
+		if (timeout > 0) {
+			timeout--;
+		} else if (timeout == 0) {
 			return -1;
 		}
 		usleep(us);
