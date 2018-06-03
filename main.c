@@ -50,7 +50,7 @@ static void setup_sighandlers(void)
 int main(int argc, char *argv[])
 {
 	int ret = 0;
-	struct step_source *ss = step_source_create();
+	struct step_source *ss = step_source_create(4);
 	struct wave_ctx ctx = {
 		.n_sources = 1,
 		.sources = { &ss->base },

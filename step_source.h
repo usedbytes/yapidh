@@ -36,6 +36,6 @@ struct step_source {
 	int channel;
 };
 
-struct step_source *step_source_create();
+struct step_source *step_source_create(int channel);
 
 #endif /* __STEP_SOURCE_H__ */

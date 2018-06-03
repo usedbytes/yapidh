@@ -18,11 +18,8 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include "gnuplot_backend.h"
 #include "step_source.h"
 #include "types.h"
-
-static int channel = 0;
 
 static int step_source_get_delay(struct source *s)
 {
@@ -52,14 +49,14 @@ static void step_source_gen_event(struct source *s, struct event *ev)
 	}
 }
 
-struct step_source *step_source_create()
+struct step_source *step_source_create(int channel)
 {
 	struct step_source *ss = calloc(1, sizeof(*ss));
 
 	ss->base.gen_event = step_source_gen_event;
 	ss->base.get_delay = step_source_get_delay;
 	ss->pulsewidth = 5;
-	ss->channel = 4;
+	ss->channel = channel;
 
 	step_ctx_init(&ss->sctx, 600, 100000, 100);
 
