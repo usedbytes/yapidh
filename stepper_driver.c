@@ -57,23 +57,26 @@ void speed_ctrl_init(struct speed_ctrl *c, int steps_per_rev, double timer_freq,
 
 static double same_sign(double a, double b)
 {
-	if (b < 0) {
-		return a < 0 ? a : -a;
+	if (signbit(b)) {
+		return signbit(a) ? a : -a;
 	}
-	return a >= 0 ? a : -a;
+	return signbit(a) ? -a : a;
 }
 
 // speed should be positive.
 static void speed_ctrl_set(struct speed_ctrl *c, double speed)
 {
 	double target_n = (speed * speed) / (2 * c->alpha * c->accel);
+	double n = c->n;
 	if (target_n < fabs(c->n)) {
-		target_n = -target_n;
+		target_n = target_n > 0.0f ? -target_n : 0.0f;
+		n = same_sign(n, -1);
 	}
 
+	c->steady = 0;
 	c->set_speed = speed;
 	c->target_n = target_n;
-	c->n = same_sign(c->n, target_n);
+	c->n = n;
 }
 
 // Returns:
@@ -197,7 +200,7 @@ static int __stepper_get_delay(struct source *s)
 static int stepper_get_delay(struct source *s)
 {
 	int c = __stepper_get_delay(s);
-	fprintf(stderr, "delay: %d\n", c);
+	//fprintf(stderr, "delay: %d\n", c);
 	return c;
 }
 
@@ -222,6 +225,8 @@ struct source *stepper_create(int step, int dir, int pwdn)
 	m->pwdn_pin = pwdn;
 
 	speed_ctrl_init(&m->ctrl, 600, F_COUNT, 100);
+
+	m->rising = (1 << m->pwdn_pin);
 
 	return &m->base;
 }

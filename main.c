@@ -78,10 +78,17 @@ int main(int argc, char *argv[])
 
 	srand(42);
 
+	int i;
+	int speed[] = { 10, -15, 0, 6, 8, -1 };
+	for (i = 0; i < 6; i++) {
+		stepper_set_velocity(ctx.sources[0], speed[i]);
+		wave_gen(&ctx, 50000);
+	}
+
+	return 0;
+
 #define MAX_SPEED 20
 	int next_change[] = { 0, 0, 0, 0};
-	int speed[] = { };
-	int i;
 
 	while (!exiting) {
 		ret = platform_sync(p, 1000);
@@ -97,11 +104,12 @@ int main(int argc, char *argv[])
 			if (next_change[i] > 0) {
 				next_change[i]--;
 			} else if (next_change[i] == 0) {
-				speed[i] = random_number(1, MAX_SPEED);
+				speed[i] = random_number(-MAX_SPEED, MAX_SPEED);
+				fprintf(stderr, "speed: %d\n", speed[i]); 
 				stepper_set_velocity(ctx.sources[i], speed[i]);
 
 				// Keep this speed for a random number of frames
-				next_change[i] = random_number(0, 60);
+				next_change[i] = random_number(0, 10);
 			}
 		}
 	}
