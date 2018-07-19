@@ -53,18 +53,12 @@ struct pi_backend {
 static void pi_backend_add_event(struct wave_backend *wb, struct source *s)
 {
 	struct pi_backend *be = (struct pi_backend *)wb;
-	struct event ev;
+	struct event ev = { 0 };
 
 	s->gen_event(s, &ev);
 
-	switch (ev.type) {
-	case EVENT_RISING_EDGE:
-		be->rising |= (1 << ev.channel);
-		break;
-	case EVENT_FALLING_EDGE:
-		be->falling |= (1 << ev.channel);
-		break;
-	}
+	be->rising |= ev.rising;
+	be->falling |= ev.falling;
 }
 
 static void pi_backend_add_delay(struct wave_backend *wb, int delay)

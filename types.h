@@ -17,14 +17,11 @@
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
-enum event_type {
-	EVENT_RISING_EDGE,
-	EVENT_FALLING_EDGE,
-};
+#include <stdint.h>
 
 struct event {
-	enum event_type type;
-	int channel;
+	uint32_t rising;
+	uint32_t falling;
 };
 
 #endif /* __TYPES_H__ */
