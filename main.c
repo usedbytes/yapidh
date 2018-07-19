@@ -21,8 +21,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "step_source.h"
-#include "step_gen.h"
+#include "stepper_driver.h"
 #include "wave_gen.h"
 
 #include "platform.h"
@@ -57,15 +56,15 @@ int main(int argc, char *argv[])
 {
 	int ret = 0;
 	struct wave_ctx ctx = {
-		.n_sources = 4,
+		.n_sources = 1,
 		.sources = {
-			(struct source *)step_source_create(16),
-			(struct source *)step_source_create(19),
-			(struct source *)step_source_create(20),
-			(struct source *)step_source_create(21),
+			stepper_create(0, 1, 2),
+			//stepper_create(19),
+			//stepper_create(20),
+			//stepper_create(21),
 		},
 	};
-	uint32_t pins = (1 << 16) | (1 << 19) | (1 << 20) | (1 << 21);
+	uint32_t pins = 7; //(1 << 16); // | (1 << 19) | (1 << 20) | (1 << 21);
 
 	struct platform *p = platform_init(pins);
 	if (!p) {
@@ -99,7 +98,7 @@ int main(int argc, char *argv[])
 				next_change[i]--;
 			} else if (next_change[i] == 0) {
 				speed[i] = random_number(1, MAX_SPEED);
-				step_source_set_speed(ctx.sources[i], speed[i]);
+				stepper_set_velocity(ctx.sources[i], speed[i]);
 
 				// Keep this speed for a random number of frames
 				next_change[i] = random_number(0, 60);
