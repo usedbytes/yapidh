@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 
 	int i;
 	int speed[] = { 10, -15, 0, 6, 8, -1 };
-	for (i = 0; i < 6; i++) {
+	for (i = 0; i < sizeof(speed) / sizeof(speed[0]); i++) {
 		stepper_set_velocity(ctx.sources[0], speed[i]);
 		wave_gen(&ctx, 50000);
 	}
