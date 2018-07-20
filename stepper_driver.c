@@ -96,8 +96,8 @@ static int speed_ctrl_tick(struct speed_ctrl *c)
 	}
 
 	if (c->n < c->target_n) {
-		c->c = c->c - ((2 * c->c) / ((4 * c->n) + 1));
 		c->n++;
+		c->c = c->c - ((2 * c->c) / ((4 * c->n) + 1));
 	} else if (!c->steady) {
 		if (c->set_speed != 0.0f) {
 			// Calculate exact count to prevent accumulated error
