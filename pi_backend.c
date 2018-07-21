@@ -50,15 +50,18 @@ struct pi_backend {
 };
 
 
-static void pi_backend_add_event(struct wave_backend *wb, struct source *s)
+static uint32_t pi_backend_add_event(struct wave_backend *wb, struct source *s)
 {
 	struct pi_backend *be = (struct pi_backend *)wb;
 	struct event ev = { 0 };
+	uint32_t ret;
 
-	s->gen_event(s, &ev);
+	ret = s->gen_event(s, &ev);
 
 	be->rising |= ev.rising;
 	be->falling |= ev.falling;
+
+	return ret;
 }
 
 static void pi_backend_add_delay(struct wave_backend *wb, int delay)

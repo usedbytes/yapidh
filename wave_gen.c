@@ -37,8 +37,7 @@ void wave_gen(struct wave_ctx *c, int budget)
 			// TODO: Should combine events where possible
 			if (c->t[i] == 0) {
 				struct source *s = c->sources[i];
-				c->be->add_event(c->be, s);
-				c->t[i] = s->get_delay(s);
+				c->t[i] = c->be->add_event(c->be, s);
 			}
 			if (c->t[i] < min) {
 				min = c->t[i];

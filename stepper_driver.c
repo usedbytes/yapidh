@@ -153,64 +153,64 @@ void stepper_set_velocity(struct source *s, double rads)
 	speed_ctrl_set(&m->ctrl, fabs(rads));
 }
 
-static int __stepper_get_delay(struct source *s)
+static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 {
 	struct stepper_motor *m = (struct stepper_motor *)s;
 	int c;
 
+	/* First check if we're stopped, and if so, just sleep */
 	if (m->state == STATE_STOPPED && m->target_rads == 0.0f) {
 		return 5 * COUNT_1MS;
 	}
 
+	/* Next, check for falling edge */
 	if (m->gap) {
-		m->falling |= (1 << m->step_pin);
+		ev->falling |= (1 << m->step_pin);
 
+		c = m->gap;
 		m->gap = 0;
-		return m->pulsewidth;
+		return c - m->pulsewidth;
 	}
 
+	/* Otherwise, get the next rising edge */
 	c = speed_ctrl_tick(&m->ctrl);
 	if (c) {
 		if (m->state == STATE_STOPPED) {
-			// Zero crossing, set direction and enable motor
+			/* First pulse (or zero crossing), set direction and enable motor */
 			if (m->target_rads > 0) {
 				m->state = STATE_FWD;
-				m->rising |= (1 << m->dir_pin);
+				ev->rising |= (1 << m->dir_pin);
 			} else {
 				m->state = STATE_REV;
-				m->falling |= (1 << m->dir_pin);
+				ev->falling |= (1 << m->dir_pin);
 			}
-			m->falling |= (1 << m->pwdn_pin);
+			ev->falling |= (1 << m->pwdn_pin);
 		}
 
-		m->rising |= (1 << m->step_pin);
+		/*
+		 * Setting enable and sending the first pulse at the same
+		 * time might be a bad idea, but otherwise we need another
+		 * state, so let's try like this for now
+		 */
+		ev->rising |= (1 << m->step_pin);
 
 		m->gap = c;
-		return m->gap - m->pulsewidth;
+		return m->pulsewidth;
+	} else {
+		/* We're stopped, but could be a zero crossing */
+		m->state = STATE_STOPPED;
+
+		if (m->target_rads == 0.0f) {
+			/* Really stopped, power down the motor */
+			ev->rising |= (1 << m->pwdn_pin);
+		}
+
+		/* If we're zero-crossing this will get us to the final speed */
+		stepper_set_velocity(s, m->target_rads);
+
+		/* Recurse once, to either sleep, or generate the first pulse */
+		return stepper_gen_event(s, ev);
 	}
-
-	m->state = STATE_STOPPED;
-	if (m->target_rads == 0.0f) {
-		m->rising |= (1 << m->pwdn_pin);
-	}
-	stepper_set_velocity(s, m->target_rads);
-	return __stepper_get_delay(s);
-}
-
-static int stepper_get_delay(struct source *s)
-{
-	int c = __stepper_get_delay(s);
-	//fprintf(stderr, "delay: %d\n", c);
-	return c;
-}
-
-static void stepper_gen_event(struct source *s, struct event *ev)
-{
-	struct stepper_motor *m = (struct stepper_motor *)s;
-
-	ev->rising = m->rising;
-	ev->falling = m->falling;
-	m->rising = m->falling = 0;
 }
 
 struct source *stepper_create(int step, int dir, int pwdn)
@@ -218,7 +218,6 @@ struct source *stepper_create(int step, int dir, int pwdn)
 	struct stepper_motor *m = calloc(1, sizeof(*m));
 
 	m->base.gen_event = stepper_gen_event;
-	m->base.get_delay = stepper_get_delay;
 	m->pulsewidth = 5;
 	m->step_pin = step;
 	m->dir_pin = dir;

@@ -22,15 +22,18 @@
 #include "vcd_backend.h"
 #include "types.h"
 
-static void vcd_backend_add_event(struct wave_backend *wb, struct source *s)
+static uint32_t vcd_backend_add_event(struct wave_backend *wb, struct source *s)
 {
 	struct vcd_backend *be = (struct vcd_backend *)wb;
 	struct event ev = { 0 };
+	uint32_t ret;
 
-	s->gen_event(s, &ev);
+	ret = s->gen_event(s, &ev);
 
 	be->rising |= ev.rising;
 	be->falling |= ev.falling;
+
+	return ret;
 }
 
 static char get_id(struct vcd_backend *be, int pin)

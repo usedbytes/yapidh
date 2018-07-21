@@ -21,20 +21,22 @@
 #ifndef __WAVE_GEN_H__
 #define __WAVE_GEN_H__
 
+#include <stdint.h>
+
 #define MAX_SOURCES 4
 
 /* event is defined by the backend */
 struct event;
 
 struct source {
-	int (*get_delay)(struct source *);
-	void (*gen_event)(struct source *, struct event *ev);
+	/* Generate an event and return the delay until the next event */
+	uint32_t (*gen_event)(struct source *, struct event *ev);
 };
 
 struct wave_backend {
 	void (*start_wave)(struct wave_backend *wb);
 	void (*add_delay)(struct wave_backend *wb, int delay);
-	void (*add_event)(struct wave_backend *wb, struct source *s);
+	uint32_t (*add_event)(struct wave_backend *wb, struct source *s);
 	void (*end_wave)(struct wave_backend *wb);
 };
 
