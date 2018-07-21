@@ -71,6 +71,8 @@ static void speed_ctrl_set(struct speed_ctrl *c, double speed)
 	if (target_n < fabs(c->n)) {
 		target_n = target_n > 0.0f ? -target_n : 0.0f;
 		n = same_sign(n, -1);
+	} else {
+		n = same_sign(n, 1);
 	}
 
 	c->steady = 0;

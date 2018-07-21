@@ -18,6 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+#include <assert.h>
 #include "wave_gen.h"
 
 #define MAX_SOURCES 4
@@ -38,6 +39,7 @@ void wave_gen(struct wave_ctx *c, int budget)
 			if (c->t[i] == 0) {
 				struct source *s = c->sources[i];
 				c->t[i] = c->be->add_event(c->be, s);
+				assert(c->t[i] > 0);
 			}
 			if (c->t[i] < min) {
 				min = c->t[i];
