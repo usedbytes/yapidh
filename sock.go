@@ -30,6 +30,6 @@ func main() {
 			println(err.Error())
 		}
 		time.Sleep(1500 * time.Millisecond)
-		speed = byte(rand.Intn(25)) + 1
+		speed = byte(rand.Intn(50)) - 25;
 	}
 }
