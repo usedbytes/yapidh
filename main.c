@@ -56,15 +56,15 @@ int main(int argc, char *argv[])
 {
 	int ret = 0;
 	struct wave_ctx ctx = {
-		.n_sources = 1,
+		.n_sources = 4,
 		.sources = {
 			stepper_create(0, 1, 2),
-			//stepper_create(19),
-			//stepper_create(20),
-			//stepper_create(21),
+			stepper_create(3, 4, 5),
+			stepper_create(6, 7, 8),
+			stepper_create(9, 10, 11),
 		},
 	};
-	uint32_t pins = 7; //(1 << 16); // | (1 << 19) | (1 << 20) | (1 << 21);
+	uint32_t pins = (1 << 12) - 1; //(1 << 16); // | (1 << 19) | (1 << 20) | (1 << 21);
 
 	struct platform *p = platform_init(pins);
 	if (!p) {
@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 
 	srand(42);
 
+#if 0
 	int i;
 	int speed[] = { 10, -15, 0, 6, 8, -1 };
 	for (i = 0; i < sizeof(speed) / sizeof(speed[0]); i++) {
@@ -87,7 +88,11 @@ int main(int argc, char *argv[])
 
 	return 0;
 
+#else
+
 #define MAX_SPEED 20
+	int i, t = 0;
+	int speed[] = { 0, 0, 0, 0 };
 	int next_change[] = { 0, 0, 0, 0};
 
 	while (!exiting) {
@@ -99,13 +104,14 @@ int main(int argc, char *argv[])
 		}
 
 		wave_gen(&ctx, 1600);
+		t += 1600;
 
 		for (i = 0; i < ctx.n_sources; i++) {
 			if (next_change[i] > 0) {
 				next_change[i]--;
 			} else if (next_change[i] == 0) {
 				speed[i] = random_number(-MAX_SPEED, MAX_SPEED);
-				fprintf(stderr, "speed: %d\n", speed[i]); 
+				fprintf(stderr, "#%d speed %i: %d\n", t, i, speed[i]);
 				stepper_set_velocity(ctx.sources[i], speed[i]);
 
 				// Keep this speed for a random number of frames
@@ -113,6 +119,7 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+#endif
 
 fail:
 	platform_fini(p);
