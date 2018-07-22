@@ -1,7 +1,8 @@
 TARGET := a.out
 SRC := main.c \
        wave_gen.c \
-       stepper_driver.c
+       stepper_driver.c \
+       comm.c
 
 CFLAGS = -Wall -g
 CFLAGS += -g -DDEBUG

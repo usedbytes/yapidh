@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #include "stepper_driver.h"
+#include "comm.h"
 #include "wave_gen.h"
 
 #include "platform.h"
@@ -47,14 +48,9 @@ static void setup_sighandlers(void)
 	}
 }
 
-static int random_number(int min, int max) {
-	int range = max + 1 - min;
-	return (rand() % range) + min;
-}
-
 int main(int argc, char *argv[])
 {
-	int ret = 0;
+	int i, ret = 0;
 	struct wave_ctx ctx = {
 		.n_sources = 4,
 		.sources = {
@@ -72,11 +68,14 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	struct comm *comm = comm_init("/tmp/sock");
+	if (!comm) {
+		fprintf(stderr, "Comm creation failed\n");
+		goto fail;
+	}
+	struct comm_packet **pkts;
+
 	setup_sighandlers();
-
-	ctx.be = platform_get_backend(p);
-
-	srand(42);
 
 #if 0
 	int i;
@@ -90,10 +89,7 @@ int main(int argc, char *argv[])
 
 #else
 
-#define MAX_SPEED 20
-	int i, t = 0;
-	int speed[] = { 0, 0, 0, 0 };
-	int next_change[] = { 0, 0, 0, 0};
+	ctx.be = platform_get_backend(p);
 
 	while (!exiting) {
 		ret = platform_sync(p, 1000);
@@ -104,19 +100,24 @@ int main(int argc, char *argv[])
 		}
 
 		wave_gen(&ctx, 1600);
-		t += 1600;
 
-		for (i = 0; i < ctx.n_sources; i++) {
-			if (next_change[i] > 0) {
-				next_change[i]--;
-			} else if (next_change[i] == 0) {
-				speed[i] = random_number(-MAX_SPEED, MAX_SPEED);
-				fprintf(stderr, "#%d speed %i: %d\n", t, i, speed[i]);
-				stepper_set_velocity(ctx.sources[i], speed[i]);
-
-				// Keep this speed for a random number of frames
-				next_change[i] = random_number(0, 10);
+		ret = comm_poll(comm, &pkts);
+		if (ret > 0) {
+			printf("Received %d packets\n", ret);
+			for (i = 0; i < ret; i++) {
+				struct comm_packet *p = pkts[i];
+				switch (p->type) {
+					/* Set Speed */
+					case 1: {
+						printf("set speed %d %d\n", p->data[0], p->data[1]);
+						stepper_set_velocity(ctx.sources[p->data[0]], (double)((int8_t)p->data[1]));
+					}
+				}
+				free(pkts[i]);
 			}
+			free(pkts);
+		} else if (ret < 0) {
+			fprintf(stderr, "comm_poll failed\n");
 		}
 	}
 #endif
