@@ -16,6 +16,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #include <math.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -33,86 +34,80 @@ enum edge {
 	EDGE_FALLING,
 };
 
-struct speed_ctrl {
+struct leib_ctx {
 	double alpha;
 	double accel;
-	double f;
+	double freq;
 
-	double n;
-	double target_n;
+	double r;
 
-	double c;
-	double set_speed;
+	double v0;
+	double v;
 
-	int steady;
+	double p1;
+	double p;
+	double ps;
+	double p0;
+	double m;
 };
 
-void speed_ctrl_init(struct speed_ctrl *c, int steps_per_rev, double timer_freq,
+static bool leib_stopped(struct leib_ctx *c)
+{
+	return c->m == 0.0f && c->v == 0.0f;
+}
+
+static void leib_init(struct leib_ctx *c, int steps_per_rev, double timer_freq,
 		   double accel_radss)
 {
 	c->alpha = (2 * M_PI) / steps_per_rev;
-	c->f = timer_freq;
-	c->accel = accel_radss;
+	c->freq = timer_freq;
+	c->accel = accel_radss / c->alpha;
+
+	c->r = c->accel / (c->freq * c->freq);
+
+	c->p0 = c->freq / sqrt(0 * 0 + 2 * c->accel);
 }
 
-static double same_sign(double a, double b)
+static void leib_start_segment(struct leib_ctx *c, double v)
 {
-	if (signbit(b)) {
-		return signbit(a) ? a : -a;
-	}
-	return signbit(a) ? -a : a;
-}
+	v = v / c->alpha;
 
-// speed should be positive.
-static void speed_ctrl_set(struct speed_ctrl *c, double speed)
-{
-	double target_n = (speed * speed) / (2 * c->alpha * c->accel);
-	double n = c->n;
-	if (target_n < fabs(c->n)) {
-		target_n = target_n > 0.0f ? -target_n : 0.0f;
-		n = same_sign(n, -1);
+	if (leib_stopped(c)) {
+		c->v0 = 0.0f;
 	} else {
-		n = same_sign(n, 1);
+		c->v0 = c->freq / c->p;
+	}
+	c->v = v;
+	c->p1 = c->freq / sqrt(c->v0 * c->v0 + 2 * c->accel);
+	c->ps = v == 0 ? c->p0 : c->freq / c->v;
+
+	if (c->v < c->v0) {
+		c->m = c->r;
+	} else if (c->v > c->v0) {
+		c->m = -c->r;
+	} else {
+		c->m = 0;
 	}
 
-	c->steady = 0;
-	c->set_speed = speed;
-	c->target_n = target_n;
-	c->n = n;
+	c->p = c->p1;
 }
 
-// Returns:
-//  0 - stopped
-//  Otherwise, delay
-static int speed_ctrl_tick(struct speed_ctrl *c)
+static double leib_tick(struct leib_ctx *c)
 {
-	if (c->n == 0.0f) {
-		if (c->target_n != 0.0f) {
-			// Need to start turning
-			c->c = 0.676 * c->f * sqrt((2 * c->alpha) / c->accel);
-			c->n = 1;
-			return c->c;
-		}
+	double p = c->p;
 
-		return 0;
+	if (c->m < 0 && c->p < c->ps) {
+		p = c->p = c->ps;
+		c->m = 0;
+	} else if (c->m > 0 && c->p > c->ps) {
+		p = c->p = c->ps;
+		c->m = 0;
+	} else if (c->m != 0) {
+		p = c->p;
+		c->p = c->p * (1 + c->m * c->p * c->p);
 	}
 
-	if (c->n < c->target_n - 1.0f) {
-		c->n++;
-		c->c = c->c - ((2 * c->c) / ((4 * c->n) + 1));
-	} else if (!c->steady) {
-		if (c->set_speed != 0.0f) {
-			// Calculate exact count to prevent accumulated error
-			c->c = (c->alpha * c->f) / c->set_speed;
-		} else {
-			c->c = 0.0f;
-		}
-
-		c->steady = 1;
-		c->n = c->target_n;
-	}
-
-	return round(c->c);
+	return p;
 }
 
 enum stepper_state {
@@ -138,7 +133,7 @@ struct stepper_motor {
 	enum stepper_state state;
 	double target_rads;
 
-	struct speed_ctrl ctrl;
+	struct leib_ctx ctrl;
 };
 
 void stepper_set_velocity(struct source *s, double rads)
@@ -152,13 +147,13 @@ void stepper_set_velocity(struct source *s, double rads)
 		rads = 0.0f;
 	}
 
-	speed_ctrl_set(&m->ctrl, fabs(rads));
+	leib_start_segment(&m->ctrl, fabs(rads));
 }
 
 static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 {
 	struct stepper_motor *m = (struct stepper_motor *)s;
-	int c;
+	double c;
 
 	/* First check if we're stopped, and if so, just sleep */
 	if (m->state == STATE_STOPPED && m->target_rads == 0.0f) {
@@ -171,35 +166,25 @@ static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 
 		c = m->gap;
 		m->gap = 0;
+
 		return c - m->pulsewidth;
 	}
 
 	/* Otherwise, get the next rising edge */
-	c = speed_ctrl_tick(&m->ctrl);
-	if (c) {
-		if (m->state == STATE_STOPPED) {
-			/* First pulse (or zero crossing), set direction and enable motor */
-			if (m->target_rads > 0) {
-				m->state = STATE_FWD;
-				ev->rising |= (1 << m->dir_pin);
-			} else {
-				m->state = STATE_REV;
-				ev->falling |= (1 << m->dir_pin);
-			}
-			ev->falling |= (1 << m->pwdn_pin);
+	c = leib_tick(&m->ctrl);
+
+	/* If we're currently stopped, but not meant to be, start moving */
+	if (m->state == STATE_STOPPED) {
+		if (m->target_rads > 0) {
+			m->state = STATE_FWD;
+			ev->rising |= (1 << m->dir_pin);
+		} else {
+			m->state = STATE_REV;
+			ev->falling |= (1 << m->dir_pin);
 		}
-
-		/*
-		 * Setting enable and sending the first pulse at the same
-		 * time might be a bad idea, but otherwise we need another
-		 * state, so let's try like this for now
-		 */
-		ev->rising |= (1 << m->step_pin);
-
-		m->gap = c;
-		return m->pulsewidth;
-	} else {
-		/* We're stopped, but could be a zero crossing */
+		ev->falling |= (1 << m->pwdn_pin);
+	} else if (leib_stopped(&m->ctrl)) {
+		/* We're stopped, but it could be a zero crossing */
 		m->state = STATE_STOPPED;
 
 		if (m->target_rads == 0.0f) {
@@ -213,6 +198,16 @@ static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 		/* Recurse once, to either sleep, or generate the first pulse */
 		return stepper_gen_event(s, ev);
 	}
+
+	/*
+	 * Setting enable and sending the first pulse at the same
+	 * time might be a bad idea, but otherwise we need another
+	 * state, so let's try like this for now
+	 */
+	ev->rising |= (1 << m->step_pin);
+
+	m->gap = round(c);
+	return m->pulsewidth;
 }
 
 struct source *stepper_create(int step, int dir, int pwdn)
@@ -225,7 +220,7 @@ struct source *stepper_create(int step, int dir, int pwdn)
 	m->dir_pin = dir;
 	m->pwdn_pin = pwdn;
 
-	speed_ctrl_init(&m->ctrl, 600, F_COUNT, 100);
+	leib_init(&m->ctrl, 600, F_COUNT, 100);
 
 	m->rising = (1 << m->pwdn_pin);
 
