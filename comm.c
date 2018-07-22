@@ -92,7 +92,7 @@ struct comm *comm_init(const char *socket)
 	comm->connection = -1;
 
 	if (!access(socket, F_OK)) {
-		printf("Socket '%s' already exists, removing.\n", socket);
+		fprintf(stderr, "Socket '%s' already exists, removing.\n", socket);
 		ret = unlink(socket);
 		if (ret) {
 			perror("Unlink failed:");
@@ -106,7 +106,7 @@ struct comm *comm_init(const char *socket)
 	}
 	comm->socket = ret;
 
-	printf("Listening on socket %s (%d)\n", socket, comm->socket);
+	fprintf(stderr, "Listening on socket %s (%d)\n", socket, comm->socket);
 	listen(comm->socket, 10);
 
 	return comm;
