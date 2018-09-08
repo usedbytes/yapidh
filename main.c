@@ -54,13 +54,16 @@ int main(int argc, char *argv[])
 	struct wave_ctx ctx = {
 		.n_sources = 4,
 		.sources = {
-			stepper_create(0, 1, 2),
-			stepper_create(3, 4, 5),
-			stepper_create(6, 7, 8),
-			stepper_create(9, 10, 11),
+			stepper_create(12,6,8),
+			stepper_create(5,7,11),
+			stepper_create(26,20,16),
+			stepper_create(19,13,21),
 		},
 	};
-	uint32_t pins = (1 << 12) - 1; //(1 << 16); // | (1 << 19) | (1 << 20) | (1 << 21);
+	uint32_t pins = (1 << 21) | (1 << 20) | (1 << 16) |
+			(1 << 26) | (1 << 19) | (1 << 13) |
+			(1 << 12) | (1 << 6) | (1 << 5) |
+			(1 << 11) | (1 << 8) | (1 << 7);
 
 	struct platform *p = platform_init(pins);
 	if (!p) {
@@ -111,6 +114,7 @@ int main(int argc, char *argv[])
 					case 1: {
 						fprintf(stderr, "set speed %d %f\n", p->data[0], (double)((int8_t)p->data[1]));
 						stepper_set_velocity(ctx.sources[p->data[0]], (double)((int8_t)p->data[1]));
+						stepper_set_velocity(ctx.sources[p->data[0] + 2], (double)((int8_t)(p->data[1])));
 					}
 				}
 				free(pkts[i]);

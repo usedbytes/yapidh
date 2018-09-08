@@ -31,5 +31,6 @@ func main() {
 		}
 		time.Sleep(1500 * time.Millisecond)
 		speed = byte(rand.Intn(50)) - 25;
+		channel = byte(rand.Intn(2));
 	}
 }

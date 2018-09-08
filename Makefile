@@ -5,7 +5,7 @@ SRC := main.c \
        comm.c
 
 CFLAGS = -Wall -g
-CFLAGS += -g -DDEBUG
+CFLAGS += -g
 LDFLAGS = -lm
 
 #PLATFORM = pi
