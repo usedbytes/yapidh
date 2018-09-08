@@ -221,7 +221,7 @@ struct source *stepper_create(int step, int dir, int pwdn)
 	m->dir_pin = dir;
 	m->pwdn_pin = pwdn;
 
-	leib_init(&m->ctrl, 600, F_COUNT, 100);
+	leib_init(&m->ctrl, 600, F_COUNT, 200);
 
 	m->rising = (1 << m->pwdn_pin);
 
