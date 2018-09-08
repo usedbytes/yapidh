@@ -157,6 +157,7 @@ static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 
 	/* First check if we're stopped, and if so, just sleep */
 	if (m->state == STATE_STOPPED && m->target_rads == 0.0f) {
+		ev->rising |= (1 << m->pwdn_pin);
 		return 5 * COUNT_1MS;
 	}
 
