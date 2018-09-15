@@ -48,9 +48,15 @@ static void setup_sighandlers(void)
 	}
 }
 
+struct step_report {
+	struct comm_packet pkt;
+	uint32_t motor;
+	int32_t steps;
+};
+
 int main(int argc, char *argv[])
 {
-	int i, ret = 0;
+	int i, n = 0, ret = 0;
 	struct wave_ctx ctx = {
 		.n_sources = 4,
 		.sources = {
@@ -123,6 +129,19 @@ int main(int argc, char *argv[])
 		} else if (ret < 0) {
 			fprintf(stderr, "comm_poll failed\n");
 		}
+
+		struct step_report rep = {
+			.pkt = {
+				.type = 0x12,
+				.length = 8,
+			},
+		};
+		rep.motor = 0,
+		rep.steps = stepper_get_steps(ctx.sources[0]);
+		comm_send(comm, (struct comm_packet *)&rep);
+		rep.motor = 1,
+		rep.steps = stepper_get_steps(ctx.sources[1]);
+		comm_send(comm, (struct comm_packet *)&rep);
 	}
 #endif
 
