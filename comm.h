@@ -28,5 +28,6 @@ struct comm_packet {
 
 struct comm *comm_init(const char *socket);
 int comm_poll(struct comm *comm, struct comm_packet ***recv);
+int comm_send(struct comm *comm, struct comm_packet *pkt);
 
 #endif /* __COMM_H__ */

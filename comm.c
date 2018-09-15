@@ -120,6 +120,30 @@ fail:
 	return NULL;
 }
 
+int comm_send(struct comm *comm, struct comm_packet *pkt)
+{
+	int len = sizeof(*pkt) + pkt->length;
+	int ret;
+
+	if (comm->connection < 0) {
+		ret = accept4(comm->socket, NULL, NULL, SOCK_NONBLOCK);
+		if (ret == -1) {
+			if (errno != EWOULDBLOCK && errno != EAGAIN) {
+				perror("Unexpected error in accept():");
+				return -1;
+			}
+			return 0;
+		}
+		comm->connection = ret;
+	}
+
+	ret = write(comm->connection, pkt, len);
+	if (ret != len) {
+		return -1;
+	}
+	return 0;
+}
+
 int comm_poll(struct comm *comm, struct comm_packet ***recv)
 {
 	int ret, npkts = 0;
