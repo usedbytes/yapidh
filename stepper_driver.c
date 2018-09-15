@@ -134,6 +134,9 @@ struct stepper_motor {
 	double target_rads;
 
 	struct leib_ctx ctrl;
+
+	int32_t steps;
+	int dsteps;
 };
 
 void stepper_set_velocity(struct source *s, double rads)
@@ -148,6 +151,14 @@ void stepper_set_velocity(struct source *s, double rads)
 	}
 
 	leib_start_segment(&m->ctrl, fabs(rads));
+}
+
+int32_t stepper_get_steps(struct source *s)
+{
+	struct stepper_motor *m = (struct stepper_motor *)s;
+	int32_t ret = m->steps;
+	m->steps = 0;
+	return ret;
 }
 
 static uint32_t stepper_gen_event(struct source *s, struct event *ev)
@@ -179,9 +190,11 @@ static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 		if (m->target_rads > 0) {
 			m->state = STATE_FWD;
 			ev->rising |= (1 << m->dir_pin);
+			m->dsteps = 1;
 		} else {
 			m->state = STATE_REV;
 			ev->falling |= (1 << m->dir_pin);
+			m->dsteps = -1;
 		}
 		ev->falling |= (1 << m->pwdn_pin);
 	} else if (leib_stopped(&m->ctrl)) {
@@ -206,6 +219,7 @@ static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 	 * state, so let's try like this for now
 	 */
 	ev->rising |= (1 << m->step_pin);
+	m->steps += m->dsteps;
 
 	m->gap = round(c);
 	return m->pulsewidth;
@@ -220,6 +234,8 @@ struct source *stepper_create(int step, int dir, int pwdn)
 	m->step_pin = step;
 	m->dir_pin = dir;
 	m->pwdn_pin = pwdn;
+	m->steps = 0;
+	m->dsteps = 0;
 
 	leib_init(&m->ctrl, 600, F_COUNT, 200);
 

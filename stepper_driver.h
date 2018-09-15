@@ -22,5 +22,6 @@
 
 struct source *stepper_create(int step, int dir, int pwdn);
 void stepper_set_velocity(struct source *s, double rads);
+int32_t stepper_get_steps(struct source *s);
 
 #endif /* __STEPPER_DRIVER_H__ */
