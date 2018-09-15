@@ -17,6 +17,7 @@
 #define _GNU_SOURCE
 #include <stddef.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,6 +37,7 @@ struct comm {
 	int socket;
 	int connection;
 
+	bool body;
 	struct comm_packet *current;
 	uint8_t *cursor;
 	size_t remaining;
@@ -144,6 +146,7 @@ int comm_poll(struct comm *comm, struct comm_packet ***recv)
 			if (!comm->current) {
 				return -ENOMEM;
 			}
+			comm->body = false;
 			comm->cursor = (uint8_t *)comm->current;
 			comm->remaining = sizeof(*comm->current);
 		}
@@ -165,11 +168,12 @@ int comm_poll(struct comm *comm, struct comm_packet ***recv)
 			}
 			break;
 		} else if (ret == comm->remaining) {
-			if (comm->cursor == (uint8_t *)comm->current) {
+			if (!comm->body) {
 				/* We just received the header */
 				comm->current = realloc(comm->current, sizeof(*comm->current) + comm->current->length);
 				// FIXME: Handle alloc failure??
 
+				comm->body = true;
 				comm->cursor = comm->current->data;
 				comm->remaining = comm->current->length;
 			} else {
