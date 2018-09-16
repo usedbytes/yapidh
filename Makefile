@@ -2,9 +2,9 @@ TARGET := a.out
 SRC := main.c \
        wave_gen.c \
        stepper_driver.c \
-       comm.c
+       ../libcomm/comm.c
 
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -I../libcomm
 CFLAGS += -g
 LDFLAGS = -lm
 

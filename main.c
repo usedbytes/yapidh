@@ -14,6 +14,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+#include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -49,7 +50,6 @@ static void setup_sighandlers(void)
 }
 
 struct step_report {
-	struct comm_packet pkt;
 	uint32_t motor;
 	int32_t steps;
 };
@@ -77,12 +77,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	struct comm *comm = comm_init("/tmp/sock");
+	struct comm *comm = comm_init_unix("/tmp/sock");
 	if (!comm) {
 		fprintf(stderr, "Comm creation failed\n");
 		goto fail;
 	}
-	struct comm_packet **pkts;
+	struct comm_packet *pkts;
 
 	setup_sighandlers();
 
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
 		if (ret > 0) {
 			fprintf(stderr, "Received %d packets\n", ret);
 			for (i = 0; i < ret; i++) {
-				struct comm_packet *p = pkts[i];
+				struct comm_packet *p = &pkts[i];
 				switch (p->type) {
 					/* Set Speed */
 					case 1: {
@@ -123,25 +123,21 @@ int main(int argc, char *argv[])
 						stepper_set_velocity(ctx.sources[p->data[0] + 2], (double)((int8_t)(p->data[1])));
 					}
 				}
-				free(pkts[i]);
 			}
-			free(pkts);
-		} else if (ret < 0) {
+			comm_free_packets(pkts, ret);
+		} else if (ret < 0 && ret != -EAGAIN) {
 			fprintf(stderr, "comm_poll failed\n");
 		}
 
-		struct step_report rep = {
-			.pkt = {
-				.type = 0x12,
-				.length = 8,
-			},
-		};
+		struct step_report rep;
+
 		rep.motor = 0,
 		rep.steps = stepper_get_steps(ctx.sources[0]);
-		comm_send(comm, (struct comm_packet *)&rep);
+		comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
+
 		rep.motor = 1,
 		rep.steps = stepper_get_steps(ctx.sources[1]);
-		comm_send(comm, (struct comm_packet *)&rep);
+		comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
 	}
 #endif
 
