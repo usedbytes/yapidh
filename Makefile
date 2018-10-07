@@ -25,19 +25,20 @@ SRC += vcd_backend.c
 endif
 
 OBJS = $(patsubst %.c,%.o,$(SRC))
+DEPS = $(patsubst %.o,%.d,$(OBJS))
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
--include $(patsubst %.o,%.d,$(OBJS))
+-include $(DEPS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 	@$(CC) -MM $(CFLAGS) $*.c > $*.d
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET) $(DEPS)
 
 .PHONY: clean all
