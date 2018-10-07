@@ -100,6 +100,8 @@ int main(int argc, char *argv[])
 
 	ctx.be = platform_get_backend(p);
 
+	int last1 = 0, last2 = 0;
+
 	while (!exiting) {
 		ret = platform_sync(p, 1000);
 		if (ret) {
@@ -131,11 +133,17 @@ int main(int argc, char *argv[])
 
 		rep.motor = 0,
 		rep.steps = stepper_get_steps(ctx.sources[0]);
-		comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
+		if (rep.steps || last1 != 0) {
+			comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
+		}
+		last1 = rep.steps;
 
 		rep.motor = 1,
 		rep.steps = stepper_get_steps(ctx.sources[1]);
-		comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
+		if (rep.steps || last2 != 0) {
+			comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
+		}
+		last2 = rep.steps;
 	}
 #endif
 
