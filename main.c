@@ -112,13 +112,11 @@ int main(int argc, char *argv[])
 
 		ret = comm_poll(comm, &pkts);
 		if (ret > 0) {
-			fprintf(stderr, "Received %d packets\n", ret);
 			for (i = 0; i < ret; i++) {
 				struct comm_packet *p = &pkts[i];
 				switch (p->type) {
 					/* Set Speed */
 					case 1: {
-						fprintf(stderr, "set speed %d %f\n", p->data[0], (double)((int8_t)p->data[1]));
 						stepper_set_velocity(ctx.sources[p->data[0]], (double)((int8_t)p->data[1]));
 						stepper_set_velocity(ctx.sources[p->data[0] + 2], (double)((int8_t)(p->data[1])));
 					}
