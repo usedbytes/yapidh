@@ -54,6 +54,12 @@ struct step_report {
 	int32_t steps;
 };
 
+struct speed_command {
+	uint8_t motor;
+	uint8_t pad[3];
+	int32_t speed_s15_16;
+};
+
 int main(int argc, char *argv[])
 {
 	int i, n = 0, ret = 0;
@@ -119,8 +125,11 @@ int main(int argc, char *argv[])
 				switch (p->type) {
 					/* Set Speed */
 					case 1: {
-						stepper_set_velocity(ctx.sources[p->data[0]], (double)((int8_t)p->data[1]));
-						stepper_set_velocity(ctx.sources[p->data[0] + 2], (double)((int8_t)(p->data[1])));
+						struct speed_command *cmd = (struct speed_command *)p->data;
+						double dspeed = (double)cmd->speed_s15_16 / 65536.0;
+
+						stepper_set_velocity(ctx.sources[cmd->motor], dspeed);
+						stepper_set_velocity(ctx.sources[cmd->motor + 2], dspeed);
 					}
 				}
 			}
