@@ -101,6 +101,17 @@ int main(int argc, char *argv[])
 
 
 #if 0
+	stepper_controlled_move(ctx.sources[0], 6 * 3.1515926f, 4 * 2 * 3.1515926f);
+
+	wave_gen(&ctx, 500000);
+
+	return 0;
+
+#endif
+
+#if 0
+
+
 	int i;
 	int speed[] = { 10, -15, 0, 6, 8, -1 };
 	for (i = 0; i < sizeof(speed) / sizeof(speed[0]); i++) {
