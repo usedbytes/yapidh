@@ -60,6 +60,11 @@ struct speed_command {
 	int32_t speed_s15_16;
 };
 
+struct controlled_move {
+	double distance_a, speed_a;
+	double distance_b, speed_b;
+};
+
 int main(int argc, char *argv[])
 {
 	int i, n = 0, ret = 0;
@@ -92,6 +97,9 @@ int main(int argc, char *argv[])
 
 	setup_sighandlers();
 
+	ctx.be = platform_get_backend(p);
+
+
 #if 0
 	int i;
 	int speed[] = { 10, -15, 0, 6, 8, -1 };
@@ -101,10 +109,7 @@ int main(int argc, char *argv[])
 	}
 
 	return 0;
-
 #else
-
-	ctx.be = platform_get_backend(p);
 
 	int last1 = 0, last2 = 0;
 
@@ -130,6 +135,16 @@ int main(int argc, char *argv[])
 
 						stepper_set_velocity(ctx.sources[cmd->motor], dspeed);
 						stepper_set_velocity(ctx.sources[cmd->motor + 2], dspeed);
+						break;
+					}
+					/* Controlled move */
+					case 2: {
+						struct controlled_move *cmd = (struct controlled_move *)p->data;
+						stepper_controlled_move(ctx.sources[0], cmd->distance_a, cmd->speed_a);
+						stepper_controlled_move(ctx.sources[2], cmd->distance_a, cmd->speed_a);
+						stepper_controlled_move(ctx.sources[1], cmd->distance_b, cmd->speed_b);
+						stepper_controlled_move(ctx.sources[3], cmd->distance_b, cmd->speed_b);
+						break;
 					}
 				}
 			}

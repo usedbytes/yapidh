@@ -137,12 +137,13 @@ struct stepper_motor {
 
 	int32_t steps;
 	int dsteps;
+
+	bool controlled;
+	int controlled_steps_until_decel;
 };
 
-void stepper_set_velocity(struct source *s, double rads)
+static void __stepper_set_velocity(struct stepper_motor *m, double rads, bool controlled)
 {
-	struct stepper_motor *m = (struct stepper_motor *)s;
-
 	m->target_rads = rads;
 	if (((m->state == STATE_FWD) && (rads <= 0.0f)) ||
 	    ((m->state == STATE_REV) && (rads >= 0.0f))) {
@@ -150,7 +151,40 @@ void stepper_set_velocity(struct source *s, double rads)
 		rads = 0.0f;
 	}
 
+	m->controlled = controlled;
+
 	leib_start_segment(&m->ctrl, fabs(rads));
+}
+
+void stepper_set_velocity(struct source *s, double rads)
+{
+	struct stepper_motor *m = (struct stepper_motor *)s;
+	__stepper_set_velocity(m, rads, false);
+}
+
+void stepper_controlled_move(struct source *s, double rad, double rads)
+{
+	struct stepper_motor *m = (struct stepper_motor *)s;
+	struct leib_ctx *c = &m->ctrl;
+
+	/* FIXME: Encapsulate */
+	double v = rads / c->alpha;
+	int accel_steps = (v * v) / (2 * c->accel);
+	int decel_steps = (v * v) / (2 * c->accel);
+	int total_steps = rad / c->alpha;
+
+	if (accel_steps + decel_steps > total_steps) {
+		/* FIXME: Doesn't handle non-zero starting velocity */
+		/* Calculate new max speed */
+		v = sqrt(total_steps / ((1 / (2 * c->accel)) + (1 / (2 * c->accel))));
+		accel_steps = (v * v) / (2 * c->accel);
+		decel_steps = (v * v) / (2 * c->accel);
+	}
+
+	rads = v * c->alpha;
+	m->controlled_steps_until_decel = total_steps - decel_steps - 2;
+
+	__stepper_set_velocity(m, rads, true);
 }
 
 int32_t stepper_get_steps(struct source *s)
@@ -211,6 +245,12 @@ static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 
 		/* Recurse once, to either sleep, or generate the first pulse */
 		return stepper_gen_event(s, ev);
+	} else if (m->controlled && m->controlled_steps_until_decel == 0) {
+		/* Start decelerating */
+		m->controlled_steps_until_decel = -1;
+		__stepper_set_velocity(m, 0.0f, true);
+
+		return stepper_gen_event(s, ev);
 	}
 
 	/*
@@ -220,6 +260,9 @@ static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 	 */
 	ev->rising |= (1 << m->step_pin);
 	m->steps += m->dsteps;
+	if (m->controlled) {
+		m->controlled_steps_until_decel--;
+	}
 
 	m->gap = round(c);
 	return m->pulsewidth;
