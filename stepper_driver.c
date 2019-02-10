@@ -280,7 +280,7 @@ struct source *stepper_create(int step, int dir, int pwdn)
 	m->steps = 0;
 	m->dsteps = 0;
 
-	leib_init(&m->ctrl, 600, F_COUNT, 200);
+	leib_init(&m->ctrl, 590, F_COUNT, 200);
 
 	m->rising = (1 << m->pwdn_pin);
 
