@@ -139,6 +139,7 @@ struct stepper_motor {
 	int dsteps;
 
 	bool controlled;
+	enum move_state controlled_status;
 	int controlled_steps_until_decel;
 };
 
@@ -151,6 +152,9 @@ static void __stepper_set_velocity(struct stepper_motor *m, double rads, bool co
 		rads = 0.0f;
 	}
 
+	if (m->controlled && !controlled) {
+		m->controlled_status = MOVE_CANCELLED;
+	}
 	m->controlled = controlled;
 
 	leib_start_segment(&m->ctrl, fabs(rads));
@@ -182,9 +186,19 @@ void stepper_controlled_move(struct source *s, double rad, double rads)
 	}
 
 	rads = v * c->alpha;
-	m->controlled_steps_until_decel = total_steps - decel_steps - 2;
 
 	__stepper_set_velocity(m, rads, true);
+	m->controlled_steps_until_decel = total_steps - decel_steps - 2;
+	m->controlled_status = MOVE_STARTED;
+}
+
+enum move_state stepper_move_status(struct source *s)
+{
+	struct stepper_motor *m = (struct stepper_motor *)s;
+	enum move_state status = m->controlled_status;
+
+	m->controlled_status = MOVE_NONE;
+	return status;
 }
 
 int32_t stepper_get_steps(struct source *s)
@@ -238,6 +252,10 @@ static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 		if (m->target_rads == 0.0f) {
 			/* Really stopped, power down the motor */
 			ev->rising |= (1 << m->pwdn_pin);
+			if (m->controlled) {
+				m->controlled_status = MOVE_DONE;
+				m->controlled = false;
+			}
 		}
 
 		/* If we're zero-crossing this will get us to the final speed */

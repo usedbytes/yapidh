@@ -52,6 +52,7 @@ static void setup_sighandlers(void)
 struct step_report {
 	uint32_t motor;
 	int32_t steps;
+	int32_t status;
 };
 
 struct speed_command {
@@ -165,17 +166,22 @@ int main(int argc, char *argv[])
 		}
 
 		struct step_report rep;
+		enum move_state status;
 
 		rep.motor = 0,
+		status = stepper_move_status(ctx.sources[0]);
+		rep.status = status;
 		rep.steps = stepper_get_steps(ctx.sources[0]);
-		if (rep.steps || last1 != 0) {
+		if (rep.steps || last1 != 0 || status != MOVE_NONE) {
 			comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
 		}
 		last1 = rep.steps;
 
 		rep.motor = 1,
+		status = stepper_move_status(ctx.sources[1]);
+		rep.status = status;
 		rep.steps = stepper_get_steps(ctx.sources[1]);
-		if (rep.steps || last2 != 0) {
+		if (rep.steps || last2 != 0 || status != MOVE_NONE) {
 			comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
 		}
 		last2 = rep.steps;

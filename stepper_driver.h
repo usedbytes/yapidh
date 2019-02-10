@@ -20,9 +20,18 @@
 
 #include "wave_gen.h"
 
+enum move_state {
+	MOVE_NONE = 0,
+	MOVE_STARTED,
+	MOVE_DONE,
+	MOVE_CANCELLED,
+};
+
 struct source *stepper_create(int step, int dir, int pwdn);
 void stepper_set_velocity(struct source *s, double rads);
 int32_t stepper_get_steps(struct source *s);
+
 void stepper_controlled_move(struct source *s, double rad, double rads);
+enum move_state stepper_move_status(struct source *s);
 
 #endif /* __STEPPER_DRIVER_H__ */
