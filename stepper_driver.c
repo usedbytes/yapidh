@@ -259,7 +259,7 @@ static uint32_t stepper_gen_event(struct source *s, struct event *ev)
 		}
 
 		/* If we're zero-crossing this will get us to the final speed */
-		stepper_set_velocity(s, m->target_rads);
+		stepper_set_velocity(s, m->target_rads, m->controlled);
 
 		/* Recurse once, to either sleep, or generate the first pulse */
 		return stepper_gen_event(s, ev);
