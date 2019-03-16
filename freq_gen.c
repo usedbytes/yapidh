@@ -6,8 +6,8 @@
 #include "freq_gen.h"
 #include "types.h"
 
-#define F_COUNT 100000
-#define COUNT_1MS 100
+#define F_COUNT 44100
+#define COUNT_1MS 44
 
 struct list_head {
 	struct list_head *next;
@@ -60,6 +60,13 @@ static uint32_t advance(struct freq_source *f, uint32_t amount) {
 	return amount;
 }
 
+static uint32_t note_to_lambda(int note) {
+	double freq = 440 * pow(2, ((double)note - 69.0)/12.0);
+
+	double period = 1 * F_COUNT / freq;
+	return (uint32_t)period;
+}
+
 static uint32_t freq_gen_event(struct source *s, struct event *ev) {
 	struct freq_source *f = (struct freq_source *)s;
 	uint32_t delay = COUNT_1MS;
@@ -79,6 +86,7 @@ static uint32_t freq_gen_event(struct source *s, struct event *ev) {
 	if (f->high) {
 		ev->falling |= (1 << f->pin);
 		f->high = false;
+		delay = f->current->lambda / 2;
 		if (f->current->duration < f->current->lambda) {
 			// Make sure we finish with low
 			f->current->duration = 0;
@@ -86,9 +94,9 @@ static uint32_t freq_gen_event(struct source *s, struct event *ev) {
 	} else {
 		ev->rising |= (1 << f->pin);
 		f->high = true;
+		delay = (f->current->lambda + 1) / 2;
 	}
 
-	delay = f->current->lambda / 2;
 
 	if (f->current->duration < delay) {
 		free(f->current);
@@ -100,13 +108,18 @@ static uint32_t freq_gen_event(struct source *s, struct event *ev) {
 	return advance(f, delay);
 }
 
+uint32_t us_to_samples(uint32_t us)
+{
+	return (uint64_t)us * F_COUNT / 1000000;
+}
+
 void freq_source_add_note(struct source *s, uint32_t timestamp, int note, uint32_t duration)
 {
 	struct freq_source *f = (struct freq_source *)s;
 	struct note *node = calloc(1, sizeof(*node));
 
 	node->timestamp = timestamp;
-	node->lambda = 100;
+	node->lambda = note_to_lambda(note);
 	node->duration = duration;
 
 	list_add(f->notes.prev, &node->node);
