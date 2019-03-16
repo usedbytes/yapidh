@@ -22,6 +22,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "freq_gen.h"
 #include "stepper_driver.h"
 #include "comm.h"
 #include "wave_gen.h"
@@ -66,8 +67,16 @@ struct controlled_move {
 	double distance_b, speed_b;
 };
 
+struct play_note {
+	uint32_t channel;
+	uint32_t timestamp;
+	uint32_t note;
+	uint32_t duration;
+};
+
 int main(int argc, char *argv[])
 {
+#if 0
 	int i, n = 0, ret = 0;
 	struct wave_ctx ctx = {
 		.n_sources = 4,
@@ -99,7 +108,69 @@ int main(int argc, char *argv[])
 	setup_sighandlers();
 
 	ctx.be = platform_get_backend(p);
+#endif
 
+	int i, n = 0, ret = 0;
+	struct wave_ctx ctx = {
+		.n_sources = 4,
+		.sources = {
+			freq_source_create(0),
+			freq_source_create(1),
+			freq_source_create(2),
+			freq_source_create(3),
+		},
+	};
+
+	struct platform *p = platform_init(0xf);
+	if (!p) {
+		fprintf(stderr, "Platform creation failed\n");
+		return 1;
+	}
+
+	ctx.be = platform_get_backend(p);
+
+	struct comm *comm = comm_init_unix("/tmp/sock");
+	if (!comm) {
+		fprintf(stderr, "Comm creation failed\n");
+		goto fail;
+	}
+	struct comm_packet *pkts;
+
+	int going = 0;
+	while (!exiting) {
+		ret = platform_sync(p, 1000);
+		if (ret) {
+			fprintf(stderr, "Timeout waiting for fence\n");
+			platform_dump(p);
+			goto fail;
+		}
+
+		ret = comm_poll(comm, &pkts);
+		if (ret > 0) {
+			for (i = 0; i < ret; i++) {
+				struct comm_packet *p = &pkts[i];
+				switch (p->type) {
+					case 3: {
+						struct play_note *cmd = (struct play_note*)p->data;
+						fprintf(stderr, "Play %d %d %d %d\n", cmd->channel, cmd->timestamp, cmd->note, cmd->duration);
+						freq_source_add_note(ctx.sources[cmd->channel], us_to_samples(cmd->timestamp), cmd->note, us_to_samples(cmd->duration));
+						going = 1;
+						break;
+					}
+				}
+			}
+			comm_free_packets(pkts, ret);
+		} else if (ret < 0 && ret != -EAGAIN) {
+			fprintf(stderr, "comm_poll failed\n");
+		}
+
+		if (going) {
+			wave_gen(&ctx, 735);
+			fflush(stdout);
+		}
+	}
+
+	return 0;
 
 #if 0
 	stepper_controlled_move(ctx.sources[0], 6 * 3.1515926f, 4 * 2 * 3.1515926f);
@@ -123,6 +194,7 @@ int main(int argc, char *argv[])
 	return 0;
 #else
 
+#if 0
 	int last1 = 0, last2 = 0;
 
 	while (!exiting) {
@@ -186,6 +258,7 @@ int main(int argc, char *argv[])
 		}
 		last2 = rep.steps;
 	}
+#endif
 #endif
 
 fail:

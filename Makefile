@@ -2,6 +2,7 @@ TARGET := a.out
 SRC := main.c \
        wave_gen.c \
        stepper_driver.c \
+       freq_gen.c \
        ../libcomm/comm.c
 
 CFLAGS = -Wall -g -I../libcomm
