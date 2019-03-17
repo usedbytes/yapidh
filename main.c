@@ -76,15 +76,14 @@ struct play_note {
 
 int main(int argc, char *argv[])
 {
-#if 0
 	int i, n = 0, ret = 0;
 	struct wave_ctx ctx = {
 		.n_sources = 4,
 		.sources = {
-			stepper_create(12,6,8),
-			stepper_create(5,7,11),
-			stepper_create(26,20,16),
-			stepper_create(19,13,21),
+			freq_source_create(12,6,8, 0),
+			freq_source_create(5,7,11, 0),
+			freq_source_create(26,20,16, 0),
+			freq_source_create(19,13,21, 0),
 		},
 	};
 	uint32_t pins = (1 << 21) | (1 << 20) | (1 << 16) |
@@ -108,7 +107,8 @@ int main(int argc, char *argv[])
 	setup_sighandlers();
 
 	ctx.be = platform_get_backend(p);
-#endif
+
+#if 0
 
 	int i, n = 0, ret = 0;
 	struct wave_ctx ctx = {
@@ -135,6 +135,7 @@ int main(int argc, char *argv[])
 		goto fail;
 	}
 	struct comm_packet *pkts;
+#endif
 
 	int going = 0;
 	while (!exiting) {
@@ -145,6 +146,15 @@ int main(int argc, char *argv[])
 			goto fail;
 		}
 
+		wave_gen(&ctx, 1600);
+		/*
+		if (going) {
+			//fflush(stdout);
+		} else {
+			usleep(1000);
+		}
+		*/
+
 		ret = comm_poll(comm, &pkts);
 		if (ret > 0) {
 			for (i = 0; i < ret; i++) {
@@ -152,7 +162,7 @@ int main(int argc, char *argv[])
 				switch (p->type) {
 					case 3: {
 						struct play_note *cmd = (struct play_note*)p->data;
-						fprintf(stderr, "Play %d %d %d %d\n", cmd->channel, cmd->timestamp, cmd->note, cmd->duration);
+						//fprintf(stderr, "Play %d %d %d %d\n", cmd->channel, cmd->timestamp, cmd->note, cmd->duration);
 						freq_source_add_note(ctx.sources[cmd->channel], us_to_samples(cmd->timestamp), cmd->note, us_to_samples(cmd->duration));
 						going = 1;
 						break;
@@ -163,14 +173,7 @@ int main(int argc, char *argv[])
 		} else if (ret < 0 && ret != -EAGAIN) {
 			fprintf(stderr, "comm_poll failed\n");
 		}
-
-		if (going) {
-			wave_gen(&ctx, 735);
-			fflush(stdout);
-		}
 	}
-
-	return 0;
 
 #if 0
 	stepper_controlled_move(ctx.sources[0], 6 * 3.1515926f, 4 * 2 * 3.1515926f);

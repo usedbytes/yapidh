@@ -19,6 +19,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #include <assert.h>
+#include <stdio.h>
 #include "wave_gen.h"
 
 #define MAX_SOURCES 4
@@ -52,6 +53,7 @@ void wave_gen(struct wave_ctx *c, int budget)
 
 		/* Delay until the next event */
 		c->be->add_delay(c->be, min);
+		//fprintf(stderr, "delay %d\n", min);
 
 		/* Reduce all the remaining delays */
 		for (i = 0; i < c->n_sources; i++) {

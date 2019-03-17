@@ -140,6 +140,7 @@ static void pi_backend_end_wave(struct wave_backend *wb)
 	if (n_cbs > (N_CBS / 4)) {
 		fprintf(stderr, "Used %d (of %d) CBs for this wave\n", n_cbs, N_CBS / 2);
 	}
+	//fprintf(stderr, "Used %d (of %d) CBs for this wave\n", n_cbs, N_CBS / 2);
 	be->cursor = NULL;
 	be->wave_idx = !be->wave_idx;
 

@@ -1,15 +1,16 @@
 TARGET := a.out
 SRC := main.c \
        wave_gen.c \
-       stepper_driver.c \
        freq_gen.c \
        ../libcomm/comm.c
+
+      #stepper_driver.c \
 
 CFLAGS = -Wall -g -I../libcomm
 CFLAGS += -g
 LDFLAGS = -lm
 
-#PLATFORM = pi
+PLATFORM = pi
 
 ifeq ($(PLATFORM),pi)
 SRC += pi_platform.c \

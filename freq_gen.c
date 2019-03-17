@@ -6,8 +6,8 @@
 #include "freq_gen.h"
 #include "types.h"
 
-#define F_COUNT 44100
-#define COUNT_1MS 44
+#define F_COUNT 100000
+#define COUNT_1MS 100
 
 struct list_head {
 	struct list_head *next;
@@ -25,7 +25,10 @@ struct freq_source {
 	struct source base;
 
 	uint32_t timestamp;
-	int pin;
+	int step;
+	int dir;
+	int pwdn;
+	int direction;
 	bool high;
 
 	struct note *current;
@@ -73,6 +76,7 @@ static uint32_t freq_gen_event(struct source *s, struct event *ev) {
 
 	if (!f->current) {
 		if (list_empty(&f->notes)) {
+			ev->rising |= (1 << f->pwdn);
 			return advance(f, delay);
 		}
 
@@ -83,18 +87,20 @@ static uint32_t freq_gen_event(struct source *s, struct event *ev) {
 		return advance(f, f->current->timestamp - f->timestamp);
 	}
 
+	ev->falling |= (1 << f->pwdn);
+
 	if (f->high) {
-		ev->falling |= (1 << f->pin);
+		ev->falling |= (1 << f->step);
 		f->high = false;
-		delay = f->current->lambda / 2;
+		delay = f->current->lambda - 5;
 		if (f->current->duration < f->current->lambda) {
 			// Make sure we finish with low
 			f->current->duration = 0;
 		}
 	} else {
-		ev->rising |= (1 << f->pin);
+		ev->rising |= (1 << f->step);
 		f->high = true;
-		delay = (f->current->lambda + 1) / 2;
+		delay = 5; //(f->current->lambda + 1) / 2;
 	}
 
 
@@ -125,12 +131,15 @@ void freq_source_add_note(struct source *s, uint32_t timestamp, int note, uint32
 	list_add(f->notes.prev, &node->node);
 }
 
-struct source *freq_source_create(int pin)
+struct source *freq_source_create(int step, int dir, int pwdn, int direction)
 {
 	struct freq_source *f = calloc(1, sizeof(*f));
 
 	f->base.gen_event = freq_gen_event;
-	f->pin = pin;
+	f->step = step;
+	f->dir = dir;
+	f->pwdn = pwdn;
+	f->direction = !!direction;
 	list_init(&f->notes);
 
 	return &f->base;
