@@ -1,6 +1,7 @@
 TARGET := a.out
 SRC := main.c \
        wave_gen.c \
+       freq_gen.c \
        stepper_driver.c \
        ../libcomm/comm.c
 

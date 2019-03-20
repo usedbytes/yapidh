@@ -25,6 +25,7 @@
 #include "stepper_driver.h"
 #include "comm.h"
 #include "wave_gen.h"
+#include "freq_gen.h"
 
 #include "platform.h"
 
@@ -65,6 +66,61 @@ struct controlled_move {
 	double distance_a, speed_a;
 	double distance_b, speed_b;
 };
+
+struct play_note {
+	uint32_t channel;
+	uint32_t timestamp;
+	uint32_t note;
+	uint32_t duration;
+};
+
+struct pp_cmd {
+	uint32_t play;
+	uint32_t reset;
+};
+
+struct audio_player {
+	struct wave_ctx ctx;
+	bool playing;
+};
+
+void audio_player_init(struct audio_player *player, int pins[][3], int n_sources, struct wave_backend *be)
+{
+	int i;
+
+	player->ctx.n_sources = n_sources;
+	player->ctx.be = be;
+
+	for (i = 0; i < n_sources; i++) {
+		player->ctx.sources[i] = freq_source_create(pins[i][0], pins[i][1], pins[i][2], i & 1);
+	}
+}
+
+void audio_player_control(struct audio_player *player, struct pp_cmd *cmd)
+{
+	int i;
+
+	player->playing = cmd->play;
+
+	for (i = 0; i < player->ctx.n_sources; i++) {
+		freq_source_play_pause(player->ctx.sources[i], cmd->play);
+	}
+	if (cmd->reset) {
+		for (i = 0; i < player->ctx.n_sources; i++) {
+			freq_source_clear(player->ctx.sources[i]);
+			freq_source_set_timestamp(player->ctx.sources[i], 0);
+		}
+	}
+}
+
+void audio_player_play_note(struct audio_player *player, struct play_note *note)
+{
+	if (note->channel >= player->ctx.n_sources) {
+		return;
+	}
+
+	freq_source_add_note(player->ctx.sources[note->channel], us_to_samples(note->timestamp), note->note, us_to_samples(note->duration));
+}
 
 int main(int argc, char *argv[])
 {
