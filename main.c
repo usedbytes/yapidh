@@ -74,6 +74,11 @@ struct play_note {
 	uint32_t duration;
 };
 
+struct pp_cmd {
+	uint32_t play;
+	uint32_t reset;
+};
+
 int main(int argc, char *argv[])
 {
 	int i, n = 0, ret = 0;
@@ -137,7 +142,6 @@ int main(int argc, char *argv[])
 	struct comm_packet *pkts;
 #endif
 
-	int going = 0;
 	while (!exiting) {
 		ret = platform_sync(p, 1000);
 		if (ret) {
@@ -147,13 +151,11 @@ int main(int argc, char *argv[])
 		}
 
 		wave_gen(&ctx, 1600);
-		/*
-		if (going) {
-			//fflush(stdout);
-		} else {
-			usleep(1000);
+
+		for (i = 0; i < ctx.n_sources; i++) {
+			fprintf(stderr, "%8d\t", freq_source_timestamp(ctx.sources[i]));
 		}
-		*/
+		fprintf(stderr, "\n");
 
 		ret = comm_poll(comm, &pkts);
 		if (ret > 0) {
@@ -162,9 +164,25 @@ int main(int argc, char *argv[])
 				switch (p->type) {
 					case 3: {
 						struct play_note *cmd = (struct play_note*)p->data;
-						//fprintf(stderr, "Play %d %d %d %d\n", cmd->channel, cmd->timestamp, cmd->note, cmd->duration);
+						if (cmd->channel >= ctx.n_sources) {
+							continue;
+						}
 						freq_source_add_note(ctx.sources[cmd->channel], us_to_samples(cmd->timestamp), cmd->note, us_to_samples(cmd->duration));
-						going = 1;
+						break;
+					}
+					case 4: {
+						int j;
+						struct pp_cmd *cmd = (struct pp_cmd*)p->data;
+						for (j = 0; j < ctx.n_sources; j++) {
+							freq_source_play_pause(ctx.sources[j], cmd->play);
+						}
+						if (cmd->reset) {
+							for (j = 0; j < ctx.n_sources; j++) {
+								freq_source_clear(ctx.sources[j]);
+								freq_source_set_timestamp(ctx.sources[j], 0);
+							}
+						}
+
 						break;
 					}
 				}

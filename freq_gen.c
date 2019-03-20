@@ -31,6 +31,8 @@ struct freq_source {
 	int direction;
 	bool high;
 
+	bool playing;
+
 	struct note *current;
 	struct list_head notes;
 };
@@ -59,7 +61,9 @@ struct list_head *list_del(struct list_head *node) {
 }
 
 static uint32_t advance(struct freq_source *f, uint32_t amount) {
-	f->timestamp += amount;
+	if (f->playing) {
+		f->timestamp += amount;
+	}
 	return amount;
 }
 
@@ -74,17 +78,37 @@ static uint32_t freq_gen_event(struct source *s, struct event *ev) {
 	struct freq_source *f = (struct freq_source *)s;
 	uint32_t delay = COUNT_1MS;
 
-	if (!f->current) {
+	if (!f->playing) {
+		ev->rising |= (1 << f->pwdn);
+		return advance(f, delay);
+	}
+
+	while (!f->current) {
 		if (list_empty(&f->notes)) {
 			ev->rising |= (1 << f->pwdn);
 			return advance(f, delay);
 		}
 
 		f->current = (struct note *)list_del(f->notes.next);
-	}
 
-	if (f->timestamp < f->current->timestamp) {
-		return advance(f, f->current->timestamp - f->timestamp);
+		if (f->direction) {
+			ev->falling |= (1 << f->dir);
+		} else {
+			ev->rising |= (1 << f->dir);
+		}
+		f->direction = !f->direction;
+
+		if (f->timestamp < f->current->timestamp) {
+			return advance(f, f->current->timestamp - f->timestamp);
+		} else {
+			int32_t duration = (f->current->timestamp + f->current->duration) - f->timestamp;
+			if (duration < 0) {
+				free(f->current);
+				f->current = NULL;
+				continue;
+			}
+			f->current->duration = duration;
+		}
 	}
 
 	ev->falling |= (1 << f->pwdn);
@@ -104,7 +128,7 @@ static uint32_t freq_gen_event(struct source *s, struct event *ev) {
 	}
 
 
-	if (f->current->duration < delay) {
+	if (f->current->duration <= delay) {
 		free(f->current);
 		f->current = NULL;
 	} else {
@@ -129,6 +153,32 @@ void freq_source_add_note(struct source *s, uint32_t timestamp, int note, uint32
 	node->duration = duration;
 
 	list_add(f->notes.prev, &node->node);
+}
+
+void freq_source_play_pause(struct source *s, bool play) {
+	struct freq_source *f = (struct freq_source *)s;
+	f->playing = play;
+}
+
+void freq_source_set_timestamp(struct source *s, uint32_t timestamp) {
+	struct freq_source *f = (struct freq_source *)s;
+	f->timestamp = timestamp;
+}
+
+uint32_t freq_source_timestamp(struct source *s) {
+	struct freq_source *f = (struct freq_source *)s;
+	return f->timestamp;
+}
+
+void freq_source_clear(struct source *s) {
+	struct freq_source *f = (struct freq_source *)s;
+
+	free(f->current);
+	while (!list_empty(&f->notes)) {
+		f->current = (struct note *)list_del(f->notes.next);
+		free(f->current);
+	}
+	f->current = NULL;
 }
 
 struct source *freq_source_create(int step, int dir, int pwdn, int direction)
