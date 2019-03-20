@@ -211,8 +211,8 @@ int main(int argc, char *argv[])
 						if (player.playing) {
 							struct pp_cmd pp_cmd = { .play = 0, .reset = 0 };
 							audio_player_control(&player, &pp_cmd);
-							ctx = &stepper_ctx;
 						}
+						ctx = &stepper_ctx;
 						stepper_set_velocity(stepper_ctx.sources[cmd->motor], dspeed);
 						stepper_set_velocity(stepper_ctx.sources[cmd->motor + 2], dspeed);
 						break;
@@ -223,8 +223,8 @@ int main(int argc, char *argv[])
 						if (player.playing) {
 							struct pp_cmd pp_cmd = { .play = 0, .reset = 0 };
 							audio_player_control(&player, &pp_cmd);
-							ctx = &stepper_ctx;
 						}
+						ctx = &stepper_ctx;
 						stepper_controlled_move(stepper_ctx.sources[0], cmd->distance_a, cmd->speed_a);
 						stepper_controlled_move(stepper_ctx.sources[2], cmd->distance_a, cmd->speed_a);
 						stepper_controlled_move(stepper_ctx.sources[1], cmd->distance_b, cmd->speed_b);
