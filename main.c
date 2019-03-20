@@ -125,7 +125,13 @@ void audio_player_play_note(struct audio_player *player, struct play_note *note)
 int main(int argc, char *argv[])
 {
 	int i, n = 0, ret = 0;
-	struct wave_ctx ctx = {
+	int ap_pins[][3] = {
+		{12, 6, 8},
+		{5, 7, 11},
+		{26, 20, 16},
+		{19, 13, 21},
+	};
+	struct wave_ctx stepper_ctx = {
 		.n_sources = 4,
 		.sources = {
 			stepper_create(12,6,8),
@@ -134,6 +140,7 @@ int main(int argc, char *argv[])
 			stepper_create(19,13,21),
 		},
 	};
+	struct audio_player player = { };
 	uint32_t pins = (1 << 21) | (1 << 20) | (1 << 16) |
 			(1 << 26) | (1 << 19) | (1 << 13) |
 			(1 << 12) | (1 << 6) | (1 << 5) |
@@ -154,8 +161,9 @@ int main(int argc, char *argv[])
 
 	setup_sighandlers();
 
-	ctx.be = platform_get_backend(p);
+	stepper_ctx.be = platform_get_backend(p);
 
+	audio_player_init(&player, ap_pins, 4, stepper_ctx.be);
 
 #if 0
 	stepper_controlled_move(ctx.sources[0], 6 * 3.1515926f, 4 * 2 * 3.1515926f);
@@ -180,7 +188,7 @@ int main(int argc, char *argv[])
 #else
 
 	int last1 = 0, last2 = 0;
-
+	struct wave_ctx *ctx = &stepper_ctx;
 	while (!exiting) {
 		ret = platform_sync(p, 1000);
 		if (ret) {
@@ -189,7 +197,7 @@ int main(int argc, char *argv[])
 			goto fail;
 		}
 
-		wave_gen(&ctx, 1600);
+		wave_gen(ctx, 1600);
 
 		ret = comm_poll(comm, &pkts);
 		if (ret > 0) {
@@ -200,18 +208,40 @@ int main(int argc, char *argv[])
 					case 1: {
 						struct speed_command *cmd = (struct speed_command *)p->data;
 						double dspeed = (double)cmd->speed_s15_16 / 65536.0;
-
-						stepper_set_velocity(ctx.sources[cmd->motor], dspeed);
-						stepper_set_velocity(ctx.sources[cmd->motor + 2], dspeed);
+						if (player.playing) {
+							struct pp_cmd pp_cmd = { .play = 0, .reset = 0 };
+							audio_player_control(&player, &pp_cmd);
+							ctx = &stepper_ctx;
+						}
+						stepper_set_velocity(stepper_ctx.sources[cmd->motor], dspeed);
+						stepper_set_velocity(stepper_ctx.sources[cmd->motor + 2], dspeed);
 						break;
 					}
 					/* Controlled move */
 					case 2: {
 						struct controlled_move *cmd = (struct controlled_move *)p->data;
-						stepper_controlled_move(ctx.sources[0], cmd->distance_a, cmd->speed_a);
-						stepper_controlled_move(ctx.sources[2], cmd->distance_a, cmd->speed_a);
-						stepper_controlled_move(ctx.sources[1], cmd->distance_b, cmd->speed_b);
-						stepper_controlled_move(ctx.sources[3], cmd->distance_b, cmd->speed_b);
+						if (player.playing) {
+							struct pp_cmd pp_cmd = { .play = 0, .reset = 0 };
+							audio_player_control(&player, &pp_cmd);
+							ctx = &stepper_ctx;
+						}
+						stepper_controlled_move(stepper_ctx.sources[0], cmd->distance_a, cmd->speed_a);
+						stepper_controlled_move(stepper_ctx.sources[2], cmd->distance_a, cmd->speed_a);
+						stepper_controlled_move(stepper_ctx.sources[1], cmd->distance_b, cmd->speed_b);
+						stepper_controlled_move(stepper_ctx.sources[3], cmd->distance_b, cmd->speed_b);
+						break;
+					}
+					case 3: {
+						struct play_note *cmd = (struct play_note*)p->data;
+						audio_player_play_note(&player, cmd);
+						break;
+					}
+					case 4: {
+						struct pp_cmd *cmd = (struct pp_cmd*)p->data;
+						audio_player_control(&player, cmd);
+						if (player.playing) {
+							ctx = &player.ctx;
+						}
 						break;
 					}
 				}
@@ -225,18 +255,18 @@ int main(int argc, char *argv[])
 		enum move_state status;
 
 		rep.motor = 0,
-		status = stepper_move_status(ctx.sources[0]);
+		status = stepper_move_status(stepper_ctx.sources[0]);
 		rep.status = status;
-		rep.steps = stepper_get_steps(ctx.sources[0]);
+		rep.steps = stepper_get_steps(stepper_ctx.sources[0]);
 		if (rep.steps || last1 != 0 || status != MOVE_NONE) {
 			comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
 		}
 		last1 = rep.steps;
 
 		rep.motor = 1,
-		status = stepper_move_status(ctx.sources[1]);
+		status = stepper_move_status(stepper_ctx.sources[1]);
 		rep.status = status;
-		rep.steps = stepper_get_steps(ctx.sources[1]);
+		rep.steps = stepper_get_steps(stepper_ctx.sources[1]);
 		if (rep.steps || last2 != 0 || status != MOVE_NONE) {
 			comm_send(comm, 0x12, sizeof(rep), (uint8_t *)&rep);
 		}
